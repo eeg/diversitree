@@ -1,0 +1,28 @@
+## NAMESPACE
+useDynLib(diversitree)
+
+export(make.bisse)
+
+export(find.mle)
+S3method(find.mle, bisse)
+
+export(mcmc)
+## Helper functions for optimisation and mcmc
+export(constrain.par)
+export(fix.par)
+
+export(starting.point)
+
+## Tree evolution code
+export(trees)
+export(tree.bisse)
+export(tree.birthdeath)
+
+## Support for "clade.tree"s
+export(polytomies.to.clades)
+export(make.clade.tree)
+S3method(plot, clade.tree)
+## export(tipmap)
+
+## Tree sampling
+## export(sample.phylo)
