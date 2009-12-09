@@ -44,7 +44,42 @@
 # RTOL <- 1e-8
 # ATOL <- 1e-8
 
-solve.gse2.C <- function(y, t, pars, rtol=RTOL, atol=ATOL)
-  gse2.ode(y, c(0, t), pars, rtol=rtol, atol=atol)[,-1]
+# Rich's fix for NaN problem, merged in from diversitree.dev (11/19/09)
+# problems with small D's on very short branches still remain and appear as a too-deep recursion error
+#eps <- RTOL <- ATOL <- 1e-8
+RTOL <- ATOL <- 1e-8
+eps <- 0        # changed 12/7/09; this is how 0.4-1 has it
+solve.gse2.C.guts <- function(y, len, pars, t0)
+{
+    ret <- t(gse2.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
+
+    if ( all(ret[,4:6] > eps) )
+    {
+        # should compare all of 4, 5, and 6 on next line
+        q <- ret[cbind(seq_along(len), as.integer(ret[,5] > ret[,6]) + 5)]
+        ret[,4:6] <- ret[,4:6] / q
+        cbind(log(q), ret, deparse.level=0)
+    } else
+    {
+        ti <- len[length(len)]/2
+        len1 <- c(len[len <= ti], ti)
+        len2 <- len[len > ti] - ti
+        n1 <- length(len1)
+        ret1 <- Recall(y, len1, pars, t0)
+        ret2 <- Recall(ret1[n1,2:7], len2, pars, t0 + ti)
+        ret2[,1] <- ret2[,1] + ret1[n1,1]
+        rbind(ret1[-n1,], ret2)
+    }
+}
+
+# a wrapper to reshape the answer from bisse.branches into old solve form
+solve.gse2.C <- function(y, len, pars)
+{
+    ans <- solve.gse2.C.guts(y, len, pars, 0)
+    ans[,5:7] <- ans[,5:7] * exp(ans[,1])
+    ans <- t(ans)
+    ans[1,] <- len
+    ans
+}
 
 solve.gse2 <- solve.gse2.C

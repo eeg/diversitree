@@ -16,9 +16,10 @@ ROOT.ALL   <- 5    # 1.0 for each state
 
 
 ### construct the likelihood function object
-make.gse2 <- function(tree, states, unresolved=NULL, sampling.f=NULL, ...)
+make.gse2 <- function(tree, states, unresolved=NULL, sampling.f=NULL,
+                      node.fixing=NULL, ...)
 {
-    cache <- gse2cache(tree, states, unresolved, sampling.f, ...)
+    cache <- gse2cache(tree, states, unresolved, sampling.f, node.fixing, ...)
 
     f <- function(pars, ..., fail.value=NULL)
     {
@@ -28,16 +29,20 @@ make.gse2 <- function(tree, states, unresolved=NULL, sampling.f=NULL, ...)
             gse2.ll(cache, pars, ...)
     }
 
-    class(f) <- c(class(f), "gse2")   # need a new class for find.mle()
+    class(f) <- c(class(f), "gse2")
     return(f)
 }
 
+# note: node-fixing doesn't yet work with more than two states!
 
 gse2.ll <- function(cache, pars, prior=NULL, root=ROOT.OBS,
-                     condition.surv=TRUE, intermediates=FALSE, root.p=NA)
+                     condition.surv=TRUE, intermediates=FALSE, root.p)
 {
-    if ( any(pars < 0) )
+    if ( any(pars < 0) || any(!is.finite(pars)) )
         return(-Inf)
+    if ( !missing(root.p) )
+        if ( missing(root) ) root <- ROOT.GIVEN
+        else warning("Ignoring specified root state")
 
     # most of the likelihood calculation
     ans <- gse2.branches(pars, cache)
@@ -87,7 +92,7 @@ gse2.ll <- function(cache, pars, prior=NULL, root=ROOT.OBS,
 #      almost identical to bissecache(), but uses three states
 #      (could easily be generalized to N states and shared with N-bisse)
 gse2cache <- function(tree, states, unresolved=NULL, sampling.f=NULL,
-                      nt.extra=10, ...)
+                      node.fixing=NULL, nt.extra=10, ...)
 {
     if ( !is.null(unresolved) && nrow(unresolved) == 0 )
     {
@@ -137,6 +142,13 @@ gse2cache <- function(tree, states, unresolved=NULL, sampling.f=NULL,
         if ( !all(tree$tip.label %in% known) )
             stop("Not all species have state information")
     }
+   
+    if (!is.null(node.fixing))
+    {
+      if (length(node.fixing) != Nnode(tree) || class(node.fixing) != "numeric")
+        stop("Invalid node.fixing vector")
+      node.fixing = c(rep(NA, Ntip(tree)), node.fixing)
+    }
 
     edge <- tree$edge
     idx <- seq_len(max(edge))
@@ -162,6 +174,7 @@ gse2cache <- function(tree, states, unresolved=NULL, sampling.f=NULL,
                 root=root,
                 unresolved=unresolved,
                 sampling.f=sampling.f,
+                node.fixing=node.fixing,
                 nt.extra=nt.extra)
     class(ans) <- "bissecache"    # can just borrow this class
     return(ans)
@@ -227,6 +240,7 @@ gse2.branches <- function(pars, cache)
     unresolved <- cache$unresolved
     nnode <- length(order)
     sampling.f <- cache$sampling.f
+    node.fixing <- cache$node.fixing
 
     # set up required space
     n <- length(len)
@@ -254,6 +268,14 @@ gse2.branches <- function(pars, cache)
         if ( any(is.na(y.in) | y.in < 0) )
             stop("Invalid conditions")
 
+        # node fixing (non-root)
+        if (!is.null(node.fixing))
+        {
+          a = node.fixing[i]
+          if (!is.na(a))
+            y.in[c(3,4)] = y.in[c(3,4)] * c(1-a, a)
+        }
+
         # integrate down the branch
         branch.init[i,] <- y.in
         branch.base[i,] <- solve.gse2(y.in, len[i], pars)[-1]
@@ -261,6 +283,15 @@ gse2.branches <- function(pars, cache)
 
     ### the final node join does not include the speciation event
     y.in <- initial.conditions.gse2(branch.base[children[root,],], pars, TRUE)
+
+    # node fixing (root)
+    if (!is.null(node.fixing))
+    {
+        a = node.fixing[root]
+        if (!is.na(a))
+            y.in[c(3,4)] = y.in[c(3,4)] * c(1-a, a)
+    }
+
     lq[root] <- y.in[7]
     branch.init[root,] <- y.in[-7]
     return( list(init=branch.init, base=branch.base, lq=lq) )
