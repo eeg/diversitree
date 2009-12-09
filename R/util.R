@@ -68,3 +68,19 @@ protect <- function(f, fail.value, finite=TRUE) {
   }
 }
 
+big.brother <- function(f, interval=1) {
+  .x.eval <- list()
+  .y.eval <- list()
+  function(x, ...) {
+    i <- length(.x.eval) + 1
+    if ( i %% interval == 0 )
+      cat(sprintf("[%s]", paste(formatC(x, 5), collapse=", ")))
+    else
+      cat(".")
+    .x.eval[[i]] <<- x
+    .y.eval[[i]] <<- ans <- f(x, ...)
+    if ( i %% interval == 0 )
+      cat(sprintf("\t -> %2.5f\n", ans))
+    ans
+  }
+}

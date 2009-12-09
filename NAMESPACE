@@ -5,11 +5,28 @@ export(make.bisse)
 
 export(find.mle)
 S3method(find.mle, bisse)
+S3method(logLik, mle.bisse)
+S3method(anova, mle.bisse)
+
 
 export(mcmc)
 ## Helper functions for optimisation and mcmc
-export(constrain.par)
-export(fix.par)
+export(constrain)
+
+S3method(print, bisse)
+S3method(print, constrained)
+
+export(argnames)
+S3method(argnames, bisse)
+S3method(argnames, constrained)
+export("argnames<-")
+S3method("argnames<-", bisse)
+S3method("argnames<-", constrained)
+
+
+
+export(protect)
+export(big.brother)
 
 export(starting.point)
 

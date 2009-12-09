@@ -4,118 +4,110 @@ find.mle <- function(func, x.init, ...) {
   UseMethod("find.mle")
 }
 
-find.mle.default <- function(func, x.init, ...) {
-  ans <- optim(x.init, func, ...)
-  names(ans)[names(ans) == "value"] = "lnLik"
+find.mle.bisse <- function(func, x.init,
+                           method=c("L-BFGS-B", "Nelder-Mead", "subplex"),
+                           control=list(), lower=NULL, upper=NULL,
+                           fail.value=NULL, hessian=FALSE, ...) {
+  method <- match.arg(method)
+  names <- argnames(func)
+  npar <- length(names)
+
+  if ( inherits(func, c("constrained", "fixed")) ) {
+    ## Identify the parameters we do have:
+    arg.idx <- match(names, argnames(environment(func)$f))
+    if ( length(x.init) == 6 ) x.init <- x.init[arg.idx]
+    if ( length(lower) == 6 )  lower <- lower[arg.idx]
+    if ( length(upper) == 6 )  upper <- upper[arg.idx]
+  } else {
+    arg.idx <- 1:6
+  }
+
+  if ( is.null(names(x.init)) )
+    names(x.init) <- names
+
+  if ( method == "subplex" ) {
+    if ( !require(subplex) )
+      stop("The subplex package is required")
+    if ( is.null(lower) ) lower <- rep(0, npar)
+    if ( is.null(upper) ) upper <- rep(Inf, npar)
+    if ( is.null(fail.value) || is.na(fail.value) )
+      fail.value <- -Inf
+    control <- modifyList(list(reltol=.Machine$double.eps^0.25),
+                          control)
+
+    func2 <- function(x) {
+      if ( any(x < lower | x > upper) )
+        -fail.value
+      else
+        -func(x, ..., fail.value=fail.value)
+    }
+    ans <- subplex(x.init, func2, control=control)
+    ans$value <- -ans$value
+    ans$hessian <- NULL
+  } else {
+    if ( is.null(lower) )
+      lower <- c(1e-4, 1e-4, 0, 0, 1e-4, 1e-4)[arg.idx]
+    if ( is.null(fail.value) || is.na(fail.value) )
+      fail.value <- func(x.init) - 1000
+    dx <- 1e-5
+    control <- modifyList(list(fnscale=-1, ndeps=rep(dx, npar)),
+                          control)
+    ans <- optim(x.init, func, control=control, lower=lower,
+                 method="L-BFGS-B", fail.value=fail.value,
+                 ...)
+  }
+  
+  names(ans)[names(ans) == "value"] <- "lnLik"
   if ( ans$convergence != 0 )
     warning("Convergence problems in find.mle: ",
             tolower(ans$message))
-  class(ans) <- "mle"
-  ans
-}
-
-find.mle.bisse <- function(func, x.init, control=list(),
-                           lower=NULL, fail.value=NULL, ...) {
-  if ( is.null(lower) )
-    lower <- c(1e-4, 1e-4, 0, 0, 1e-4, 1e-4)
-  if ( is.null(fail.value) || is.na(fail.value) )
-    fail.value <- func(x.init) - 1000
-
-  dx <- 1e-5
-  par.names <- c("lambda0", "lambda1", "mu0", "mu1", "q01", "q10")
-
-  if ( inherits(func, c("constrained", "fixed")) ) {
-    free <- environment(func)$free
-    control <- modifyList(list(fnscale=-1, ndeps=rep(dx, sum(free))),
-                          control)
-    if ( length(lower)  == length(free) )
-      lower  <- lower[free]
-    if ( length(x.init) == length(free) )
-      x.init <- x.init[free]
-    if ( is.null(names(x.init)) )
-      names(x.init) <- par.names[free]
-  } else {
-    if ( is.null(names(x.init)) )
-      names(x.init) <- par.names
-    control <- modifyList(list(fnscale=-1, ndeps=rep(dx, 6)), control)
-  }
-
-  ans <- find.mle.default(func, x.init, control=control, lower=lower,
-                          method="L-BFGS-B", fail.value=fail.value,
-                          ...)
-  class(ans) <- c(class(ans), "mle.bisse")
+  class(ans) <- "mle.bisse"
 
   at.edge <- ans$par - lower == 0 & lower > 0
-  if ( any(at.edge) ) {
-    at.edge <- at.edge[at.edge]
+  if ( any(at.edge) )
     warning(sprintf("Parameter(s) %s at edge of parameter space",
-                    paste(which(at.edge), collapse=", ")))
+                    paste(names[at.edge], collapse=", ")))
+  if ( hessian ) {
+    if ( !require(numDeriv) )
+      stop("The package numDeriv is required to compute the hessian")
+    ans$hessian <- hessian(func, ans$par, ...)
   }
 
   ans
 }
 
+logLik.mle.bisse <- function(object, ...) {
+  ll <- object$lnLik
+  attr(ll, "df") <- length(object$par)
+  class(ll) <- "logLik"
+  ll
+}
 
+## Code based on MASS:::anova.negbin and ape:::anova.ace
+anova.mle.bisse <- function(object, ...) {
+  mlist <- c(list(object), list(...))
+  if ( length(mlist) == 1L )
+    stop("Need to specify more than one model")
+  if ( is.null(names(mlist)) )
+    names(mlist) <-
+      c("full", model=sprintf("model %d", seq_len(length(mlist)-1)))
+  else
+    names(mlist)[1] <- "full"
 
-
-
-## find.mle <- function(func, x.init, lower, upper=Inf,
-##                      constraint=NULL, fixed=NULL, ...) {
-##   names.full <- c("lambda0", "lambda1", "mu0", "mu1", "q01", "q10")
-##   full <- is.null(constraint) && is.null(fixed)
+  ll <- lapply(mlist, logLik)
+  ll.val <- sapply(ll, as.numeric)
+  chisq <- c(NA, abs(2*(ll.val[1] - ll.val[-1])))
+  df <- sapply(ll, attr, "df")
+  ddf <- c(NA, abs(df[1] - df[-1]))
   
-##   if ( missing(lower) )
-##     lower <- c(1e-6, 1e-6, 0, 0, 1e-6, 1e-6)
-
-##   if ( full ) {
-##     f <- func
-##     npar <- 6
-##     ok <- 1:6
-##   } else if ( !is.null(fixed) ) {
-##     f <- function(x)
-##       bisse(obj, spread(x, fixed), ...)
-##     ok <- which(is.na(fixed))
-##     npar <- length(ok)
-##   } else if ( !is.null(constraint) ) {
-##     f <- function(x)
-##       bisse(obj, add.constrained(x, constraint), ...)
-##     ok <- which(is.na(constraint))
-##     npar <- length(ok)
-##   } else {
-##     stop("Not yet implemented!")
-##   }
-
-##   names(x.init) <- names.full[ok]
-
-##   if ( !full ) {
-##     if ( length(lower) == 6 ) lower <- lower[ok]
-##     if ( length(upper) == 6 ) upper <- upper[ok]
-##     if ( length(x.init) == 6 ) x.init <- x.init[ok]
-##   }
-  
-##   est <- optim(x.init, f, method="L-BFGS-B", lower=lower, upper=upper,
-##                control=list(fnscale=-1))
-
-##   if ( est$convergence != 0 )
-##     warning("Convergence was not complete; check the output carefully")
-##   else
-##     est <- est[c("par", "value")]
-  
-##   names(est)[2] <- "logLik"
-##   class(est) <- "mle"
-
-##   if ( !is.null(fixed) )
-##     est$allPars <- add.fixed(est$par, fixed)
-##   else if ( !is.null(constraint) )
-##     est$allPars <- add.constrained(est$par, constraint)
-
-##   if (!full)
-##     names(est$allPars) <- names.full
-
-##   est
-## }
-
-## mle.phylo <- mle.phylo4 <- function(obj, states, unresolved=NULL,
-##                                     ...) {
-##   mle(bissecache(obj, states, unresolved), ...)
-## }
+  out <- data.frame(Df=df,
+                    lnLik=sapply(ll, as.numeric),
+                    AIC=sapply(mlist, AIC),
+                    ChiSq=chisq,
+                    "Pr(>|Chi|)"=1 - pchisq(chisq, ddf),
+                    check.names=FALSE)
+  rownames(out) <- names(mlist)
+    
+  class(out) <- c("anova", "data.frame")
+  out
+}

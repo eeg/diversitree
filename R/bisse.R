@@ -26,9 +26,14 @@ make.bisse <- function(tree, states, unresolved=NULL,
 
 bisse.ll <- function(cache, pars, prior=NULL, root=ROOT.OBS,
                      condition.surv=TRUE, intermediates=FALSE,
-                     root.p0=NA) {
-  if ( any(pars < 0) )
+                     root.p0=NA, root.p1=NA) {
+  if ( any(pars < 0) || any(!is.finite(pars)) )
     return(-Inf)
+  if ( !missing(root.p0) || !missing(root.p1) )
+    if ( missing(root) ) root <- ROOT.GIVEN
+    else warning("Ignoring specified root state")
+  if ( !missing(root.p1) )
+    root.p0 <- 1 - root.p1
   ans <- bisse.branches(pars, cache)
   e.root <- ans$init[cache$root,1:2]
   d.root <- ans$init[cache$root,3:4]
@@ -232,7 +237,6 @@ bisse.branches <- function(pars, cache) {
     y.in <- y.in[-5]
     if ( any(is.na(y.in) | y.in < 0) )
       stop("Invalid conditions")
-
     branch.init[i,] <- y.in
     branch.base[i,] <- solve(y.in, len[i], pars)[-1]
   }
