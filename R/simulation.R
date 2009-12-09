@@ -15,7 +15,7 @@
 ## Main interface.  In the hope that I will make this generic over a
 ## 'model' object, I will design the calling structure in a way that
 ## is similar to S3 generics/methods.
-trees <- function(pars, type=c("bisse", "birthdeath"), n=1,
+trees <- function(pars, type=c("bisse", "bd"), n=1,
                   max.taxa=Inf, max.t=Inf, include.extinct=FALSE,
                   ...) {
   if ( is.infinite(max.taxa) && is.infinite(max.t) )
@@ -23,7 +23,7 @@ trees <- function(pars, type=c("bisse", "birthdeath"), n=1,
   type <- match.arg(type)
   f <- switch(type,
               bisse=tree.bisse,
-              birthdeath=tree.birthdeath)
+              bd=tree.bd)
   trees <- vector("list", n)  
   i <- 1
 
@@ -40,23 +40,23 @@ trees <- function(pars, type=c("bisse", "birthdeath"), n=1,
 tree.bisse <- function(pars, max.taxa=Inf, max.t=Inf,
                        include.extinct=FALSE, x0=NA, ...) {
   if ( is.na(x0) )
-    x0 <- as.integer(runif(1) > stationary.freq(pars))
+    x0 <- as.integer(runif(1) > bisse.stationary.freq(pars))
   else if ( length(x0) != 1 || !(x0 == 0 || x0 == 1) )
     stop("Invalid root state")
   stopifnot(length(pars) == 6 && all(pars >= 0))
   
   info <- make.tree.bisse(pars, max.taxa, max.t, x0)
-  phy <- me.to.ape.bisse(info[-1,])
+  phy <- me.to.ape.bisse(info[-1,], info$state[1])
   if ( include.extinct || is.null(phy) )
     phy
   else
     prune(phy)
 }
 
-tree.birthdeath <- function(pars, max.taxa=Inf, max.t=Inf,
-                            include.extinct=FALSE, ...) {
-  info <- make.tree.birthdeath(pars, max.taxa, max.t)
-  phy <- me.to.ape.birthdeath(info[-1,])
+tree.bd <- function(pars, max.taxa=Inf, max.t=Inf,
+                    include.extinct=FALSE, ...) {
+  info <- make.tree.bd(pars, max.taxa, max.t)
+  phy <- me.to.ape.bd(info[-1,])
   if ( include.extinct || is.null(phy) )
     phy
   else
@@ -91,7 +91,7 @@ make.tree.bisse <- function(pars, max.taxa=Inf, max.t=Inf, x0,
     n.taxa <- lineages <- n.i[x0+1] <- 2
   }
 
-  while ( n.taxa < max.taxa && n.taxa > 0) {
+  while ( n.taxa <= max.taxa && n.taxa > 0) {
     ## When does an event happen?
     r.n <- r.i * n.i
     r.tot <- sum(r.n)
@@ -119,6 +119,9 @@ make.tree.bisse <- function(pars, max.taxa=Inf, max.t=Inf, x0,
 
     if ( type == 1 ) {
       ## Speciating:
+      if ( n.taxa == max.taxa )
+        ## Don't add this one.
+        break
       new.i <- length(extinct) + 1:2
       split[lineage] <- TRUE
       extinct[new.i] <- split[new.i] <- FALSE
@@ -152,7 +155,7 @@ make.tree.bisse <- function(pars, max.taxa=Inf, max.t=Inf, x0,
   info
 }
 
-me.to.ape.bisse <- function(x) {
+me.to.ape.bisse <- function(x, root.state) {
   if ( nrow(x) == 0 )
     return(NULL)
   Nnode <- sum(!x$split) - 1
@@ -176,20 +179,25 @@ me.to.ape.bisse <- function(x) {
 
   tip.state <- x$state[match(1:n.tips, x$idx2)]
   names(tip.state) <- tip.label
-  phy <- reorder(structure(list(edge=cbind(x$parent2, x$idx2),
-                               Nnode=Nnode,
-                               tip.label=tip.label,
-                               tip.state=tip.state,
-                               node.label=node.label,
-                               edge.length=x$len,
-                               orig=x),
-                          class="phylo"))
 
+  node.state <- x$state[match(1:Nnode + n.tips, x$idx2)]
+  names(node.state) <- node.label
+  node.state["nd1"] <- root.state
+
+  phy <- reorder(structure(list(edge=cbind(x$parent2, x$idx2),
+                                Nnode=Nnode,
+                                tip.label=tip.label,
+                                tip.state=tip.state,
+                                node.label=node.label,
+                                node.state=node.state,
+                                edge.length=x$len,
+                                orig=x),
+                          class="phylo"))
   phy$edge.state <- x$state[match(phy$edge[,2], x$idx2)]
   phy
 }
 
-make.tree.birthdeath <- function(pars, max.taxa=Inf, max.t=Inf) {
+make.tree.bd <- function(pars, max.taxa=Inf, max.t=Inf) {
   extinct <- FALSE
   split   <- FALSE
   parent <- 0
@@ -252,7 +260,7 @@ make.tree.birthdeath <- function(pars, max.taxa=Inf, max.t=Inf) {
   info
 }
 
-me.to.ape.birthdeath <- function(x) {
+me.to.ape.bd <- function(x) {
   if ( nrow(x) == 0 )
     return(NULL)
   Nnode <- sum(!x$split) - 1
@@ -291,10 +299,11 @@ prune <- function(phy) {
   if ( all(to.drop) ) {
     NULL
   } else if ( any(to.drop) ) {
-    phy2 <- drop.tip(phy, phy$tip.label[to.drop])
+    phy2 <- drop.tip.fixed(phy, phy$tip.label[to.drop])
     ## phy2$orig <- subset(phy2$orig, !extinct) # Check NOTE
     phy2$orig <- phy2$orig[!phy2$orig$extinct,]
     phy2$tip.state <- phy2$tip.state[!to.drop]
+    phy2$node.state <- phy2$node.state[phy2$node.label]
     phy2
   } else {
     phy

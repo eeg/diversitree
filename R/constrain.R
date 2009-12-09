@@ -82,9 +82,15 @@ constrain.parse <- function(formula, names.lhs, names.rhs) {
     stop("Invalid target on LHS of formula" )
   if ( is.language(rhs) ) {
     vars <- all.vars(rhs)
-    if ( !all(vars %in% names.rhs) )
-      stop("Some elements of the RHS were not found in names.rhs:\n\t",
-           paste(setdiff(vars, names.rhs), collapse=", "))
+    if ( !all(vars %in% names.rhs) ) {
+      if ( length(vars) == 1 && exists(vars) )
+        ## TODO: Check that 'vars' is not really already in the
+        ## function names.
+        rhs <- get(vars)
+      else
+        stop("Some elements of the RHS were not found in names.rhs:\n\t",
+             paste(setdiff(vars, names.rhs), collapse=", "))
+    }
     if ( as.character(lhs) %in% vars )
       stop("LHS cannot appear in RHS")
   } else if ( !is.numeric(rhs) ) {

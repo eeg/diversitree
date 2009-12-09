@@ -1,5 +1,6 @@
 \name{protect}
 \alias{protect}
+\alias{invert}
 
 \title{Protect Function Evaluations}
 
@@ -8,6 +9,7 @@
 
 \usage{
 protect(f, fail.value, finite=TRUE)
+invert(f)
 }
 
 \arguments{
