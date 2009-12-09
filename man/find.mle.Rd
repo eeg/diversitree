@@ -2,7 +2,9 @@
 \alias{find.mle}
 \alias{find.mle.bisse}
 \alias{logLik.mle.bisse}
-\alias{starting.point}
+\alias{starting.point.bisse}
+\alias{starting.point} % DEP
+\alias{bisse.starting.point} % DEP
 \alias{anova.mle.bisse}
 
 \title{Maximimum Likelihood Inference}
@@ -14,8 +16,10 @@
 find.mle(func, x.init, ...)
 \method{find.mle}{bisse}(func, x.init,
                method=c("L-BFGS-B", "Nelder-Mead", "subplex"),
-               control=list(), lower=NULL, upper=NULL,
+               control=list(),
                fail.value=NULL, hessian=FALSE, ...)
+starting.point.bisse(tree, q.div=5)
+bisse.starting.point(tree, q.div=5)
 starting.point(tree, q.div=5)
 \method{logLik}{mle.bisse}(object, ...)
 \method{anova}{mle.bisse}(object, ...)
@@ -35,11 +39,6 @@ starting.point(tree, q.div=5)
     evaluations) but tends explores more of parameter space.}
   \item{control}{List of options to \code{\link{optim}} or
     \code{subplex}}
-  \item{lower}{Lower limits for the parameters.  If omitted, the
-    \code{bisse} method adds sensible lower limits in the absence of
-    additional information (see Details).}
-  \item{upper}{Upper limits for the parameters. If omitted, no upper
-    bound is assumed (this is usually fine).}
   \item{fail.value}{Value to use if the likelihood calculation fails.
     \code{\link{optim}} requires finite values for all evaluations, so if you
     have a problem with failed evaluations set this
@@ -65,22 +64,16 @@ starting.point(tree, q.div=5)
   Arguments for constrained BiSSE models are processed a little
   differently.  Constrained BiSSE models have fewer than six parameters;
   if a constrained model is detected and \code{x.init} has six
-  arguments, then the arguments \code{lower} and \code{x.init} are
-  subset so that only the appropriate elements are used.  This does not
-  work for other vectorised arguments to \code{\link{optim}} (e.g.,
-  \code{upper}).
+  arguments, it is subseted so that only the appropriate elements are
+  used.  This does not work for other vectorised arguments to
+  \code{\link{optim}} (e.g., \code{upper}).
 
-  Lower limits are required for optimisation to work well.  Being rates,
-  all parameters have a natural lower limit of zero, but the likelihood
-  will be undefined with polymorphic state data if both \code{q} values
-  are zero, and undefined if both \code{lambda} values are zero.  The
-  lower limit is set to be \code{1e-4} for both \code{lambda} and
-  \code{q} values.  A warning will be given if the final point lies on
-  any given constraint; it would be worth rerunning the analysis with
-  contraints relaxed if this warning is given.
-
-  \code{starting.point} produces a poor starting point to start from,
-  based on the character-independent birth-death model.
+  \code{starting.point.bisse} produces a heuristic starting point to
+  start from, based on the character-independent birth-death model.  You
+  can probably do better than this; see the vignette, for example.
+  \code{bisse.starting.point} is the same code, but deprecated in favour
+  of \code{startng.point.bisse} - it will be removed in a future
+  version.
 
   See \code{\link{find.mle}} for an example of \code{anova}.
 }
