@@ -14,17 +14,20 @@
 \usage{
 constrain.par(f, rel)
 fix.par(f, rel)
+constrain.fix.par(f, constrain.rel, fix.rel)
 }
 \arguments{
   \item{f}{A function to constrain.}
-  \item{rel}{An integer vector to constrain parameters (see Details).}
+  \item{rel}{A vector to constrain parameters (see Details).}
 }
 
 \details{
-  The argument \code{rel} should be a vector of integers.  Arguments
-  that are not constrained should be \code{NA}, and arguments that are
-  should be an integer referring to the unconstrained argument \emph{in
-  the original list} that they are constrained to.
+  The argument \code{rel} should be a vector of integers when constraining 
+  parameters to be equal.  For fixing parameters to particular values, it 
+  should be a vector of non-negative values.  Arguments that are not 
+  constrained or fixed should be \code{NA}.  Arguments that are constrained
+  to each other should be an integer referring to the unconstrained argument 
+  \emph{in the original list} that they are constrained to.
 }
 
 \section{Warning}{

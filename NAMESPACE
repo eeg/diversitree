@@ -1,15 +1,18 @@
 ## NAMESPACE
-useDynLib(diversitree)
+useDynLib(diversitreeGSE)
 
 export(make.bisse)
+export(make.gse2)
 
 export(find.mle)
 S3method(find.mle, bisse)
+S3method(find.mle, gse2)
 
 export(mcmc)
 ## Helper functions for optimisation and mcmc
 export(constrain.par)
 export(fix.par)
+export(constrain.fix.par)
 
 export(starting.point)
 
@@ -17,6 +20,7 @@ export(starting.point)
 export(trees)
 export(tree.bisse)
 export(tree.birthdeath)
+#export(tree.gse2)  # merge in my C code?
 
 ## Support for "clade.tree"s
 export(polytomies.to.clades)
