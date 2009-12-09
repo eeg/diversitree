@@ -33,6 +33,63 @@ make.bisse(tree, states, unresolved=NULL, sampling.f=NULL, ...)
     below).}
 }
 
+
+\details{
+  \code{make.bisse} returns a function of class \code{bisse}.  This
+  function has argument list (and default values)
+  
+
+  \preformatted{
+    f(pars, prior=NULL, root=ROOT.OBS,
+      condition.surv=TRUE, intermediates=FALSE,
+      root.p0=NA, root.p1=NA, fail.value=NULL)
+    }
+  
+    The arguments are interpreted as
+    \itemize{
+      \item \code{pars} A vector of six parameters, in the order \code{lambda0},
+      \code{lambda1}, \code{mu0}, \code{mu1}, \code{q01}, \code{q10}.
+      \item \code{prior} A vector of rates for an exponential prior.  The prior
+      probability distribution has probability density
+      \deqn{r_i e^{-r_i x_i}}{r_i*exp(-r_i*x_i)}
+      where the \eqn{i} denotes the \eqn{i}th parameter.  There is no
+      ability to specify a form of prior other than an exponential
+      function here (yet), and this part of the inteface is subject to
+      change!
+      \item \code{root}: Behaviour at the root (see Maddison et al. 2007,
+      FitzJohn et al. 2009).  The possible options are
+      \itemize{
+	\item \code{diversitree:::ROOT.FLAT}: A flat prior, weighting
+ 	\eqn{D_0}{D0} and \eqn{D_1}{D1} equally.
+	\item \code{diversitree:::ROOT.EQUI}: Use the equilibrium distribution
+ 	of the model, as described in Maddison et al. (2007).
+	\item \code{diversitree:::ROOT.OBS}: Weight \eqn{D_0}{D0} and
+ 	\eqn{D_1}{D1} by their relative probability of observing the
+ 	data, following FitzJohn et al. 2009:
+ 	\deqn{D = D_0*\frac{D_0}{D_0 + D_1} + D_1*\frac{D_1}{D_0 + D_1}}{
+ 	  D = D0 * D0/(D0 + D1) + D1 * D1/(D0 + D1)}
+	\item \code{diversitree:::ROOT.GIVEN}: Root will be in state 0
+	with probability \code{root.p0}, or in state 1 with probability
+	\code{root.p1}.  Specify either of these, but just one.
+	Specifying either \code{root.p0} or \code{root.p1} automatically
+	selects \code{ROOT.GIVEN}.
+	\item \code{diversitree:::ROOT.BOTH}: Don't do anything at the root,
+ 	and return both values.  (Note that this will not give you a
+ 	likelihood!).
+      }
+      \item \code{intermediates}: Add intermediates to the returned value as
+      attributes:
+      \itemize{
+       \item \code{cache}: Cached tree traversal information.
+       \item \code{intermediates}: Mostly branch end information.
+       \item \code{vals}: Root \eqn{D} values.
+       \item \code{logComp}: Underflow compensation information.
+     }
+     At this point, you will have to poke about in the source for more
+     information on these.
+   }
+ }
+
 \section{Unresolved clade information}{
   This must be a \code{\link{data.frame}} with at least the four columns
   \itemize{
@@ -55,60 +112,10 @@ make.bisse(tree, states, unresolved=NULL, sampling.f=NULL, ...)
   unresolved clades.)
 }
 
-\value{
-  \code{make.bisse} returns a function of class \code{bisse}.  This
-  function has argument list (and default values)
-   \preformatted{
-     f(pars, prior=NULL, root=ROOT.OBS,
-       condition.surv=TRUE, intermediates=FALSE,
-       root.p0=NA, fail.value=NULL)
-   }
-
-   \item{\code{pars}: A vector of six parameters, in the order \code{lambda0},
-     \code{lambda1}, \code{mu0}, \code{mu1}, \code{q01}, \code{q10}.}
-   \item{\code{prior}: A vector of rates for an exponential prior.  The prior
-     probability distribution has probability density
-     \deqn{r_i e^{-r_i x_i}}{r_i*exp(-r_i*x_i)}
-     where the \eqn{i} denotes the \eqn{i}th parameter.  There is no
-     ability to specify a form of prior other than an exponential
-     function here (yet), and this part of the inteface is subject to
-     change!}.
-   \item{\code{sampling.fraction}: Vector of lengths of estimated fraction of
-     species included in the phylogeny in state 0 and 1.  A value of
-     \code{c(0.5, 0.75)} means that half of species in state 0 and
-     three quarters of species in state 1 are included in the
-     phylogeny.}
-   \item{\code{root}: Behaviour at the root (see Maddison et al. 2007,
-     FitzJohn et al. 2009).  The possible options are
-     \describe{
-       \item[\code{bisse:::ROOT.FLAT}]{A flat prior, weighting
- 	 \eqn{D_0}{D0} and \eqn{D_1}{D1} equally.}
-       \item[\code{bisse:::ROOT.EQUI}]{Use the equilibrium distribution
- 	 of the model, as described in Maddison et al. (2007).}
-       \item[\code{bisse:::ROOT.OBS}]{Weight \eqn{D_0}{D0} and
- 	 \eqn{D_1}{D1} by their relative probability of observing the
- 	 data, following FitzJohn et al. 2009:
- 	 \deqn{D = D_0*\frac{D_0}{D_0 + D_1} + D_1*\frac{D_1}{D_0 + D_1}}{
- 	   D = D0 * D0/(D0 + D1) + D1 * D1/(D0 + D1)}}
-       \item[\code{bisse:::ROOT.GIVEN}]{Weight using the value
- 	 specified with the argument \code{root.p0}.}
-       \item[\code{bisse:::ROOT.BOTH}]{Don't do anything at the root,
- 	 and return both values.  (Note that this will not give you a
- 	 likelihood!).}
-     }
-   }
-   \item{\code{intermediates}: Add intermediates to the returned value as
-     attributes:
-     \describe{
-       \item[cache]{\code{cache}: Cached tree traversal information.}
-       \item[intermediates]{\code{intermediates}: Mostly branch end information.}
-       \item[vals]{\code{vals}: Root \eqn{D} values.}
-       \item[logComp]{\code{logComp}: Underflow compensation information.}
-     }
-     At this point, you will have to poke about in the source for more
-     information on these.
-   }
- }
+\seealso{
+  \code{\link{constrain}} for making submodels, \code{\link{find.mle}}
+  for ML parameter estimation, \code{\link{mcmc}} for MCMC integration.
+}
 
 \author{Richard G. FitzJohn}
 \keyword{models}

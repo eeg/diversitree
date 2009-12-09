@@ -45,60 +45,6 @@ resolve.constraint <- function(rel) {
   rel
 }
 
-
-## Both constrain and fix arguments
-constrain.fix.par <- function(f, constrain.rel, fix.rel)
-{
-    f <- match.fun(f)
-
-    if (length(constrain.rel) != length(fix.rel))
-        stop("Constrain and Fix vectors must be of equal length")
-    if (any(!is.na(constrain.rel) & !is.na(fix.rel)))
-        stop("Cannot both constrain and fix the same parameter")
-    if (!all(constrain.rel %in% c(seq_along(constrain.rel), NA)))
-        stop("Invalid constrain vector")
-    if ( inherits(f, c("fixed", "constrained")) )
-        stop("Cannot constrain an already-constrained function")
-    # could also add a warning if constraining a parameter to itself
-    # are else's really needed with stop?
-
-    free <- is.na(constrain.rel) & is.na(fix.rel)
-
-    g <- function(x, ...)
-        f(con.fix(x, constrain.rel, fix.rel), ...)
-    class(g) <- c(class(f), "constrained")
-    g
-}
-
-# input:  x = vector of free parameter values
-# output: z = vector of all parameter values, respecting constraints/fixing
-con.fix <- function(x, constrain.rel, fix.rel)
-{
-    z = rep(NA, length(constrain.rel))
-
-    i = which(is.na(constrain.rel) & is.na(fix.rel))
-    z[i] = x   # works but sometimes gives a warning
-#--------------------------------------------------
-### first time through, x has length of all params
-#     if (length(z) == length(x))
-#     {
-#         z[i] = x[i]
-#     } else
-#     {
-#         z[i] = x
-#     }
-#-------------------------------------------------- 
-
-    i = which(!is.na(fix.rel))
-    z[i] = fix.rel[i]
-
-    i = which(!is.na(constrain.rel))
-    z[i] = z[constrain.rel[i]]
-
-    return(z)
-}
-
-
 ## Sensible starting point for optimisation
 starting.point <- function(tree, q.div=5) {
  fit <- suppressWarnings(birthdeath(tree))
@@ -122,3 +68,19 @@ protect <- function(f, fail.value, finite=TRUE) {
   }
 }
 
+big.brother <- function(f, interval=1) {
+  .x.eval <- list()
+  .y.eval <- list()
+  function(x, ...) {
+    i <- length(.x.eval) + 1
+    if ( i %% interval == 0 )
+      cat(sprintf("[%s]", paste(formatC(x, 5), collapse=", ")))
+    else
+      cat(".")
+    .x.eval[[i]] <<- x
+    .y.eval[[i]] <<- ans <- f(x, ...)
+    if ( i %% interval == 0 )
+      cat(sprintf("\t -> %2.5f\n", ans))
+    ans
+  }
+}

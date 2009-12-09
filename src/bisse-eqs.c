@@ -3,7 +3,7 @@
  */
 
 #include <R.h>
-static double parms[4];
+static double parms[6];
 #define lambda0 parms[0]
 #define lambda1 parms[1]
 #define mu0 parms[2]

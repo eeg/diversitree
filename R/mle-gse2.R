@@ -1,10 +1,9 @@
-## I should use stats4:::mle, but this does not work well for me with
-## computing the variance-covariance matrix.
+### gse2 methods are nearly identical to bisse methods, but this duplication is just easier for now
 find.mle <- function(func, x.init, ...) {
   UseMethod("find.mle")
 }
 
-find.mle.bisse <- function(func, x.init,
+find.mle.gse2 <- function(func, x.init,
                            method=c("L-BFGS-B", "Nelder-Mead", "subplex"),
                            control=list(), lower=NULL, upper=NULL,
                            fail.value=NULL, hessian=FALSE, ...) {
@@ -15,11 +14,11 @@ find.mle.bisse <- function(func, x.init,
   if ( inherits(func, c("constrained", "fixed")) ) {
     ## Identify the parameters we do have:
     arg.idx <- match(names, argnames(environment(func)$f))
-    if ( length(x.init) == 6 ) x.init <- x.init[arg.idx]
-    if ( length(lower) == 6 )  lower <- lower[arg.idx]
-    if ( length(upper) == 6 )  upper <- upper[arg.idx]
+    if ( length(x.init) == 7 ) x.init <- x.init[arg.idx]
+    if ( length(lower) == 7 )  lower <- lower[arg.idx]
+    if ( length(upper) == 7 )  upper <- upper[arg.idx]
   } else {
-    arg.idx <- 1:6
+    arg.idx <- 1:7
   }
 
   if ( is.null(names(x.init)) )
@@ -46,7 +45,7 @@ find.mle.bisse <- function(func, x.init,
     ans$hessian <- NULL
   } else {
     if ( is.null(lower) )
-      lower <- c(1e-4, 1e-4, 0, 0, 1e-4, 1e-4)[arg.idx]
+      lower <- c(1e-4, 1e-4, 1e-4, 0, 0, 1e-4, 1e-4)[arg.idx]
     if ( is.null(fail.value) || is.na(fail.value) )
       fail.value <- func(x.init) - 1000
     dx <- 1e-5
@@ -61,7 +60,7 @@ find.mle.bisse <- function(func, x.init,
   if ( ans$convergence != 0 )
     warning("Convergence problems in find.mle: ",
             tolower(ans$message))
-  class(ans) <- "mle.bisse"
+  class(ans) <- "mle.gse2"
 
   at.edge <- ans$par - lower == 0 & lower > 0
   if ( any(at.edge) )
@@ -76,7 +75,7 @@ find.mle.bisse <- function(func, x.init,
   ans
 }
 
-logLik.mle.bisse <- function(object, ...) {
+logLik.mle.gse2 <- function(object, ...) {
   ll <- object$lnLik
   attr(ll, "df") <- length(object$par)
   class(ll) <- "logLik"
@@ -84,7 +83,7 @@ logLik.mle.bisse <- function(object, ...) {
 }
 
 ## Code based on MASS:::anova.negbin and ape:::anova.ace
-anova.mle.bisse <- function(object, ...) {
+anova.mle.gse2 <- function(object, ...) {
   mlist <- c(list(object), list(...))
   if ( length(mlist) == 1L )
     stop("Need to specify more than one model")
