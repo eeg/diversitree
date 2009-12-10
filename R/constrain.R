@@ -28,20 +28,6 @@ argnames.bisse <- function(x, ...) {
 argnames.constrained <- function(x, ...)
   environment(x)$names.rhs
 
-argnames.gse2 <- function(x, ...) {
-  ret <- attr(x, "argnames")
-  if ( is.null(ret) )
-    c("sA", "sB", "sAB", "xA", "xB", "dA", "dB")
-  else
-    ret
-}
-`argnames<-.gse2` <- function(x, value) {
-  if ( length(value) != 7 )
-    stop("Invalid names length")
-  attr(x, "argnames") <- value
-  x  
-}
-
 
 ## The LHS of a formula must be a single variable name that exists in
 ## "names.lhs"
@@ -201,10 +187,6 @@ constrain2 <- function(f, ..., names=argnames(f)) {
 
 print.bisse <- function(x, ...) {
   cat("BiSSE likelihood function:\n")
-  print(unclass(x))
-}
-print.gse2 <- function(x, ...) {
-  cat("GSE2 likelihood function:\n")
   print(unclass(x))
 }
 

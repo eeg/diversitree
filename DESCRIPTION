@@ -11,6 +11,6 @@ Description: Contains an R implementation of BiSSE (Binary State
   701) and its unresolved tree extensions (FitzJohn et al. 2009:
   Syst. Biol. 58: 595).  Future versions will contain a quantitative
   trait method (QuaSSE) and multi-state/multi-trait BiSSE-like
-  methods.  EEG: Now has GSE2.
+  methods.  *** EEG: includes GSE2 ***
 License: GPL (>=2) (mostly...)
 URL: http://www.zoology.ubc.ca/prog/diversitree
