@@ -2,8 +2,9 @@
 RTOL <- ATOL <- 1e-8
 eps <- 0
 branches.gse2 <- function(y, len, pars, t0) {
-  ret <- t(gse2(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
+  ret <- t(gse2.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   if ( all(ret[,4:6] >= eps) ) {
+    # TODO: should compare all of 4, 5, and 6 on next line
     q <- ret[cbind(seq_along(len), as.integer(ret[,5] > ret[,6]) + 5)]
     i <- q > 0
     ret[i,4:6] <- ret[i,4:6] / q[i]
@@ -99,12 +100,16 @@ make.gse2 <- function(tree, states, unresolved=NULL, sampling.f=NULL,
 ## GSE2 root calculations
 # used to be in gse2.ll
 root.gse2 <- function(vars, lq, pars, root, condition.surv, root.p=NA) {
-  if ( !is.na(root.p) )
+  if ( !is.na(root.p[1]) )
+  {
     if ( root != ROOT.GIVEN )
       warning("Ignoring specified root state")
+    if ( length(root.p) != 3 )
+      stop("root.p must be a vector of length 3")
+  }
   
-  e.root <- vars[c(1,3)]
-  d.root <- vars[c(4,6)]
+  e.root <- vars[1:3]
+  d.root <- vars[4:6]
 
   # p = vector of weights for root state (not a scalar like bisse's root.p0)
   if ( root == ROOT.FLAT )
