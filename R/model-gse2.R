@@ -168,6 +168,7 @@ starting.point.gse2 <- function(tree, q.div=5) {
   r <- fit$para[2]
   e <- fit$para[1]
   p <- rep(c(r/(1-e), r*e/(1-e), r/q.div), each=2)
+  p <- c(p[1], p)
   names(p) <- c("sA", "sB", "sAB", "xA", "xB", "dA", "dB")
   p
 }

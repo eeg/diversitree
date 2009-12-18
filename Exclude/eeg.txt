@@ -1,4 +1,4 @@
-CHANGES (from Rich's diversitree)
+CHANGES (from Rich's diversitree, v0.3)
 -------
 
 added a little to DESCRIPTION
