@@ -125,8 +125,8 @@ ll.gse2 <- function(cache, pars, branches, prior=NULL,
   if ( !is.null(root.p) && root != ROOT.GIVEN )
     warning("Ignoring specified root state")
 
-  gse2.ll(pars, cache, initial.conditions.bisse,
-           branches, branches.unresolved.bisse,
+  gse2.ll(pars, cache, initial.conditions.gse2,
+           branches, branches.unresolved.gse2,
            condition.surv, root, root.p,
            prior, intermediates)
 }
@@ -260,6 +260,6 @@ starting.point.gse2 <- function(tree, q.div=5, yule=FALSE) {
 }
 
 # For GSE2, think about what a sensible set of default models would be.
-# all.models.bisse <- function(f, p, ...) { ... }
+# all.models.gse2 <- function(f, p, ...) { ... }
 
 # mle and anova stuff that used to be here is now covered generically in mle.R
