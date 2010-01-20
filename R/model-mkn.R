@@ -25,7 +25,7 @@ make.mk2 <- function(tree, states) {
 }
 
 make.mkn <- function(tree, states, k) {
-  cache <- make.cache.mkn(tree, states)
+  cache <- make.cache.mkn(tree, states, k)
   branches <- make.branches.mkn(k)
   qmat <- matrix(0, k, k)
   idx <- cbind(rep(1:k, each=k-1),

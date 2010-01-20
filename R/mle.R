@@ -51,6 +51,8 @@ do.mle.search <- function(func, x.init, method, fail.value=NA,
 
   mle.search <- get(sprintf("do.mle.search.%s", method))
   ans <- mle.search(func2, x.init, fail.value, ...)
+  if ( verbose )
+    cat("\n")
 
   if ( hessian ) {
     if ( !require(numDeriv) )
@@ -179,8 +181,15 @@ logLik.fit.mle <- function(object, ...) {
   ll
 }
 
-coef.fit.mle <- function(object, ...) {
-  object$par
+coef.fit.mle <- function(object, full=FALSE, extra=FALSE, ...) {
+  func <- object$func
+  if ( full && inherits(func, "constrained") )
+    if ( extra && !is.null(extra.v <- attr(func, "extra")) )
+      c(object$par[extra.v], func(object$par, pars.only=TRUE))
+    else
+      func(object$par, pars.only=TRUE)
+  else
+    object$par
 }
 
 extractAIC.fit.mle <- function(fit, scale, k=2, ...)
@@ -200,9 +209,19 @@ anova.fit.mle <- function(object, ..., sequential=FALSE) {
 
   ll <- lapply(mlist, logLik)
   ll.val <- sapply(ll, as.numeric)
-  chisq <- c(NA, abs(2*(ll.val[1] - ll.val[-1])))
   df <- sapply(ll, attr, "df")
-  ddf <- c(NA, abs(df[1] - df[-1]))
+
+  if ( sequential ) {
+    ddf <- c(NA, diff(df))
+    if ( any(ddf[-1] < 1) )
+      stop("Models are not ordered correctly for sequential anova")
+    chisq <- c(NA, 2*diff(ll.val))
+    if ( any(chisq[-1] < 0 ))
+      warning("Impossible chi-square values - convergence failures?")
+  } else {
+    chisq <- c(NA, abs(2*(ll.val[1] - ll.val[-1])))
+    ddf <- c(NA, abs(df[1] - df[-1]))
+  }
   
   out <- data.frame(Df=df,
                     lnLik=sapply(ll, as.numeric),

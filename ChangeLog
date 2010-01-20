@@ -1,3 +1,70 @@
+2010-01-19  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* DESCRIPTION: updated to version 0.4-3
+
+	* R/constrain.R: Now allows "extra" variables to be specified,
+	allowing constraint against dummy parameters.  New "update" method
+	for removing constraints (adding constraints will come soon).
+	constrained functions now have attribute "func" containing the
+	original unconstrained function.
+
+	* R/diversitree-branches.R: New check for appropriate length for
+	root.p.
+
+	* R/mcmc.R: Better handling of fail values.
+
+	* R/mle.R: coef.fit.mle for constrained models can now return
+	coefficients for the underlying full model (with full=TRUE).
+
+	* R/model-bd.R: New starting.point.bd function
+
+	* R/model-bisse.R: starting.point.bisse uses starting.point.bd
+
+	* R/util.R: protect() now takes a default value for failure.
+
+2010-01-14  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* DESCRIPTION: Now depends on subplex
+
+	* NAMESPACE: export new methods for fit.mle objects (coef and
+	extractAIC), plus constants ROOT.*
+
+	* R/clade-tree-plot.R: Fixed (was broken after importing
+	plot2.R).  Now uses node.depth and node.depth.edgelength from
+	plot2.R, but uses different version of node.height that allows for
+	the number of taxa represented at a tip to affect spacing.
+
+	* R/constrain.R (constrain): now allows 'formulae' object
+	including a list of constraints.
+
+	* R/mcmc.R: Removed partially-implemented options for functions
+	that do not return proper log-likelihoods.
+
+	* R/mle.R: Optional supression of warnings when guessing a
+	constrained starting position.  New extractAIC.fit.mle method.
+	Option for (mostly unchecked) sequential likelihood ratio tests
+	for sequentially nested models.
+
+	* R/model-bd.R (make.yule): Cannot (yet) use a prior with the Yule
+	model: warning added.
+
+	* R/model-bisse.R (starting.point.bisse): Improved to start the
+	search from a yule model first, removing the need to include a
+	starting point.
+
+	* R/model-mkn.R: make.mkn() was broken (did not pass k through to
+	make.cache.mkn()).  argnames.mkn() now takes optional 'k' argument
+	for generating argument names manually (may change in future).
+
+	* R/profiles-plot.R (profiles.plot): Number of breaks in a plot
+	now tunable in argument.
+
+	* R/util.R (make.ode): Now compatible with deSolve-1.6.
+
+	* man/make.bisse.Rd: typo
+
+	* man/simulate.Rd: small clarifications.
+
 2010-01-05  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
 
 	* R/simulate-bisse.R (make.tree.bisse): Fixed creation of empty
