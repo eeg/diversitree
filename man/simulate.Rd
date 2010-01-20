@@ -2,22 +2,26 @@
 \alias{trees}
 \alias{tree.bisse}
 \alias{tree.bd}
+\alias{tree.yule}
+\alias{prune}
 
 \title{Evolve Birth-Death Trees}
 
 \description{Evolves one or more trees under the BiSSE (Binary State
-  Specialtion and Extinction) birth-death model or a simple character
+  Speciation and Extinction) birth-death model or a simple character
   independent birth-death model.  For BiSSE trees, it simultaneously
-  evolves a binary character that affects speciation and/or extinction
-  and lineages.
+  evolves a binary character that affects speciation and/or extinction,
+  and the tree itself.
 }
 
 \usage{
-trees(pars, type=c("bisse", "bd"), n=1, max.taxa=Inf,
+trees(pars, type=c("bisse", "bd", "yule"), n=1, max.taxa=Inf,
       max.t=Inf, include.extinct=FALSE, ...)
 tree.bisse(pars, max.taxa=Inf, max.t=Inf, include.extinct=FALSE,
            x0=NA, ...)
 tree.bd(pars, max.taxa=Inf, max.t=Inf, include.extinct=FALSE, ...)
+tree.yule(pars, max.taxa=Inf, max.t=Inf, include.extinct=FALSE, ...)
+prune(phy, to.drop=NULL)
 }
 
 \arguments{
@@ -41,15 +45,18 @@ tree.bd(pars, max.taxa=Inf, max.t=Inf, include.extinct=FALSE, ...)
     of \code{NA} will randomly choose a state from the model's
     equilibrium distribution.}
   \item{...}{Additional arguments}
+  \item{phy}{A phylogeny, possibly with extinct species, produced by one
+    of the tree evolving functions.}
+  \item{to.drop}{Optional vector with the species names to drop.}
 }
 
 \details{
   The phylogeny will begin from a single lineage in state \code{x0}, but
   the final phylogeny will include only branches above the first split.
 
-  \code{bisse.tree} may return an extinct phylogeny, and
-  \code{bisse.trees} might return extinct phylogenies if
-  \code{include.extinct} is \code{TRUE}.
+  \code{tree.bisse} may return an extinct phylogeny, and \code{trees}
+  might return extinct phylogenies if \code{include.extinct} is
+  \code{TRUE}.
 }
 
 \note{
@@ -67,17 +74,21 @@ tree.bd(pars, max.taxa=Inf, max.t=Inf, include.extinct=FALSE, ...)
   binary state information.
 }
 
-\author{Richard G. FitzJohn}
-
 \examples{
 pars <- c(0.1, 0.2, 0.03, 0.03, 0.01, 0.01)
 set.seed(3)
 phy <- tree.bisse(pars, max.taxa=30, x0=0)
 phy$tip.state
 
-plot(phy, label.offset=1, cex=.8)
-tiplabels(pch=21, bg=phy$tip.state+1, adj=1)
-nodelabels(pch=21, bg=phy$node.state+1)
+h <- history.from.sim.discrete(phy, 0:1)
+plot(h, phy)
+
+## Retain extinct species:
+set.seed(3)
+phy2 <- tree.bisse(pars, max.taxa=30, x0=0, include.extinct=TRUE)
+h2 <- history.from.sim.discrete(phy2, 0:1)
+plot(h2, phy2)
 }
 
 \keyword{models}
+\author{Richard G. FitzJohn}

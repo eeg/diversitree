@@ -1,46 +1,49 @@
 ## The B-D model is different to the others in that I am not using
 ## most of the infrastructure - instead the entire calculations are
 ## done at once.
-bd.ll <- function(cache, pars, prior=NULL) {
-  N <- cache$N
-  x <- cache$x
 
-  r <- pars[1] - pars[2]
-  a <- pars[2] / pars[1]
-  ## This allows r < 0, a > 1.  a < 0 is not allowed though
-  ## Also, if r < 0, then a must > 1 (and vv.).  XOR captures this.
-  ## if ( a < 0 || sign(1-a) != sign(r) ) return(-Inf)
-  if ( a < 0 || xor(a > 1, r < 0) )
-    return(-Inf)
+## Models should provide:
+##   1. make
+##   2. print
+##   3. argnames / argnames<-
+##   4. find.mle
+## Generally, make will require:
+##   5. make.cache (also initial.tip, root)
+##   6. ll
+##   7. initial.conditions
+##   8. branches
+##   9. branches.unresolved
 
-  loglik <- lfactorial(N - 1) + (N - 2) * log(abs(r)) + r * sum(x[3:N]) +
-    N * log(abs(1 - a)) - 2*sum(log(abs(exp(r * x[2:N]) - a)))
-
-  if ( !is.null(prior) )
-    loglik <- loglik + prior.bd(pars)
-
-  loglik
+## 1: make
+make.bd <- function(tree, times=NULL,
+                    sampling.f=NULL, unresolved=NULL) {
+  cache <- make.cache.bd(tree, times, sampling.f, unresolved)
+  ll <- function(pars, ...) ll.bd(cache, pars, ...)
+  class(ll) <- c("bd", "function")
+  ll
 }
 
-make.bd <- function(tree, times=branching.times(tree),
-                            sampling.f=NULL, unresolved=NULL) {
-  if ( !is.null(sampling.f) ) .NotYetUsed("sampling.f")
-  if ( !is.null(unresolved) ) .NotYetUsed("unresolved")
-
-  if ( !missing(times) && !missing(tree) )
-    stop("times cannot be specified if tree given")
-  x <- c(NA, times)
-  N <- length(x)
-  cache <- list(N=N, x=x)
-  f <- function(pars, ..., fail.value=NULL) {
-    if (!is.null(fail.value)) 
-      protect(bd.ll, fail.value)(cache, pars, ...)
-    else bd.ll(cache, pars, ...)
-  }
-  class(f) <- c("bd", "function")
-  f
+make.yule <- function(tree, times=NULL,
+                      sampling.f=NULL, unresolved=NULL) {
+  cache <- make.cache.bd(tree, times, sampling.f, unresolved)
+  ll <- function(pars, ...) ll.bd(cache, c(pars, 0), ...)
+  class(ll) <- c("yule", "bd", "function")
+  ll
 }
 
+## 2: print
+print.bd <- function(x, ...) {
+  cat("Constant rate birth-death likelihood function:\n")
+  print(unclass(x))
+}
+
+print.yule <- function(x, ...) {
+  cat("Constant rate Yule model likelihood function:\n")
+  print(unclass(x))
+}
+
+
+## 3: argnames / argnames<-
 argnames.bd <- function(x, ...) {
   ret <- attr(x, "argnames")
   if ( is.null(ret) )
@@ -55,89 +58,142 @@ argnames.bd <- function(x, ...) {
   x  
 }
 
-find.mle.bd <- function(func, x.init,
-                        method=c("nlm", "L-BFGS-B", "Nelder-Mead",
-                          "subplex"),
-                        control=list(),
-                        fail.value=NULL, hessian=FALSE, ...) {
-  method <- match.arg(method)
-  names <- argnames(func)
+argnames.yule <- function(x, ...) {
+  ret <- attr(x, "argnames")
+  if ( is.null(ret) )
+    "lambda"
+  else
+    ret
+}
+`argnames<-.yule` <- function(x, value) {
+  if ( length(value) != 1 )
+    stop("Invalid names length")
+  attr(x, "argnames") <- value
+  x  
+}
 
+## 4: find.mle
+find.mle.bd <- function(func, x.init, method,
+                        fail.value=NA, ...) {
   ## I really should use parameters estimated from the Yule model
-  ## here.  Currently using parameters from nowhere.
-  if ( missing(x.init) )
+  ## here.  Currently using parameters from nowhere, as doing this is
+  ## slightly less trivial than one would hope (need to get access to
+  ## the cache, which might be hidden by a constraint...
+  if ( missing(x.init) ) {
+    ## tmp <- find.mle.yule(func, ...)
+    ## x.init <- structure(c(tmp$par, 0), names=argnames(func))
+    warning("Guessing initial parameters - may do badly")
     x.init <- structure(c(.2, .1), names=argnames(func))
-  if ( is.null(names(x.init)) )
-    names(x.init) <- argnames(func)
+  }
+  if ( missing(method) )
+    method <- "nlm"
+  find.mle.default(func, x.init, method, fail.value,
+                   class.append="fit.mle.bd", ...)
+  ## NextMethod("find.mle", x.init=x.init, method=method,
+  ##           class.append="fit.mle.bd")
+}
+
+find.mle.yule <- function(func, x.init, method, fail.value=NA,
+                          ...) {
+  ## TODO: I think this will fail after constraining, which should not
+  ## be done.
+  ## TODO: This is only true for certain cases (no funny business with
+  ## sampling.f/unresolved - this might require moving to
+  ## numeric solutions?)
+  cache <- environment(func)$cache
+  condition.surv <- list(...)$condition.surv
+  if ( is.null(condition.surv) )
+    condition.surv <- TRUE
+
+  if ( !is.null(environment(func)$prior) )
+    stop("Cannot yet get MAP point for Yule with prior - ",
+         "use constrained bd model instead")
+
+  n.node <- if ( condition.surv ) cache$n.node - 1 else cache$n.node
+  lambda <- n.node / cache$tot.len
+  obj <- list(par=c(lambda=lambda),
+              lnLik=func(lambda, ...),
+              counts=NA,
+              code=0,
+              gradient=NA,
+              method="analytic")
+  class(obj) <- c("fit.mle.yule", "fit.mle")
+  obj
+}
+
+## 5: make.cache
+make.cache.bd <- function(tree=NULL, times=NULL,
+                          sampling.f=NULL, unresolved=NULL) {
+  if ( !is.null(times) && !is.null(tree) )
+    stop("times cannot be specified if tree given")
+  else if ( is.null(times) && is.null(tree) )
+    stop("Either times or tree must be specified")
+  else if ( is.null(times) )
+    times <- as.numeric(sort(branching.times(tree), decreasing=TRUE))
+  else
+    times <- as.numeric(sort(times, decreasing=TRUE))
   
-  if ( inherits(func, "constrained") ) {
-    ## Identify the parameters we do have:
-    arg.idx <- match(names, argnames(environment(func)$f))
-    if ( length(x.init) == 2 )
-      x.init <- x.init[arg.idx]
-  }
+  if ( !is.null(sampling.f) ) .NotYetUsed("sampling.f")
+  if ( !is.null(unresolved) ) .NotYetUsed("unresolved")
 
-  if ( method=="nlm" ) {
-    if ( is.null(fail.value) || is.na(fail.value) )
-      fail.value <- func(x.init, ...) - 1000
-    fit <- nlm(invert(func), x.init, fail.value=fail.value, ...)
-    names(fit)[names(fit) == "estimate"] <- "par"
-    names(fit)[names(fit) == "minimum"] <- "lnLik"
-    names(fit)[names(fit) == "iterations"] <- "counts"
-    fit$lnLik <- -fit$lnLik 
-    names(fit$par) <- names(x.init)
-    fit <- fit[c("par", "lnLik", "counts", "code", "gradient")]
-  } else if ( method == "subplex" ) {
-    if ( !require(subplex) )
-      stop("The subplex package is required")
-    control <- modifyList(list(reltol=.Machine$double.eps^0.25),
-                          control, ...)
-    if ( is.null(fail.value) || is.na(fail.value) )
-      fail.value <- -Inf
-    fit <- subplex(x.init, invert(func), control=control, fail.value)
-    fit$value <- -fit$value
-    fit$hessian <- NULL
+  x <- c(NA, times)
+  N <- length(x)
+
+  if ( is.null(tree) ) {
+    tot.len <- sum(diff(times[1] - c(times, 0)) *
+                   2:(length(times) + 1))
+    n.node <- length(times)
   } else {
-    if ( is.null(fail.value) || is.na(fail.value) )
-      fail.value <- func(x.init, ...) - 1000
-    control <- modifyList(list(fnscale=-1), control)
-    fit <- optim(x.init, func, control=control, method=method,
-                 fail.value=fail.value, ...)
+    tot.len <- sum(tree$edge.length)
+    n.node <- tree$Nnode
   }
 
-  names(fit)[names(fit) == "value"] <- "lnLik"
-  if ( method == "nlm" ) {
-    if ( fit$code > 2 )
-      warning("Convergence problems in find.mle: code = ",
-              fit$code, " (see ?nlm for details)")
-  } else {
-    if ( fit$convergence != 0 )
-      warning("Convergence problems in find.mle: ",
-              tolower(fit$message))
-  }
-
-  if ( hessian ) {
-    if ( !require(numDeriv) )
-      stop("The package numDeriv is required to compute the hessian")
-    fit$hessian <- hessian(func, fit$par, ...)
-  }
-
-  class(fit) <- "mle.bd"
-  fit
+  list(N=N, x=x, tot.len=tot.len, n.node=n.node)
 }
 
-logLik.mle.bd <- function(object, ...) {
-  ll <- object$lnLik
-  attr(ll, "df") <- length(object$par)
-  class(ll) <- "logLik"
-  ll
+## make here only requires the ll function.  It cannot use cleanup
+## though, as the normal cache structure is not generated.
+ll.bd <- function(cache, pars, prior=NULL, condition.surv=TRUE) {
+  N <- cache$N
+  x <- cache$x
+
+  r <- pars[1] - pars[2]
+  a <- pars[2] / pars[1]
+  ## This allows r < 0, a > 1.  a < 0 is not allowed though
+  ## Also, if r < 0, then a must > 1 (and vv.).  XOR captures this.
+  ##   if ( a < 0 || sign(1-a) != sign(r) ) return(-Inf)
+  ## Alternatively, just enforce all(pars > 0)?
+  if ( a < 0 || xor(a > 1, r < 0) )
+    return(-Inf)
+
+  if ( condition.surv )
+    loglik <- lfactorial(N - 1) + (N - 2) * log(abs(r)) + r * sum(x[3:N]) +
+      N * log(abs(1 - a)) - 2*sum(log(abs(exp(r * x[2:N]) - a)))
+  else
+    loglik <- lfactorial(N - 1) + (N - 2) * log(abs(r)) + r * sum(x[3:N]) +
+      N * log(abs(1 - a)) - 2*sum(log(abs(exp(r * x[2:N]) - a))) +
+        2*log(abs((1-a)/(1-a*exp(-r * x[2])))) + log(r/(1-a))
+
+
+  ## Copied from cleanup
+  if ( is.null(prior) )
+    p <- loglik
+  else if ( is.numeric(prior) )
+    p <- loglik + prior.default(pars, prior)
+  else if ( is.function(prior) )
+    p <- loglik + prior(pars)
+  else
+    stop("Invalid 'prior' argument")
+
+  loglik
 }
 
-anova.mle.bd <- anova.mle.bisse
-prior.bd <- function(pars, r)
-  - sum(pars * r)
-
-print.bd <- function(x, ...) {
-  cat("Constant rate birth-death likelihood function:\n")
-  print(unclass(x))
+starting.point.bd <- function(tree, yule=FALSE) {
+  pars.yule <- c(coef(find.mle(make.yule(tree))), 0)
+  if ( yule )
+    p <- pars.yule
+  else
+    p <- coef(find.mle(make.bd(tree), pars.yule))
+  names(p) <- c("lambda", "mu")
+  p
 }

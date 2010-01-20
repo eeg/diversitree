@@ -1,3 +1,19 @@
+CHANGES (from Rich's diversitree, v0.4)
+-------
+
+added a little to DESCRIPTION
+added to NAMESPACE
+created model-gse2.R (compare with model-bisse.R)
+created gse2-eqs.c (compare with bisse-eqs.c)
+
+TODO
+----
+
+simulate for gse2
+documentation
+
+
+
 CHANGES (from Rich's diversitree, v0.3)
 -------
 
