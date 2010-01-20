@@ -2,6 +2,8 @@
 \alias{trees}
 \alias{tree.bisse}
 \alias{tree.bd}
+\alias{tree.yule}
+\alias{prune}
 
 \title{Evolve Birth-Death Trees}
 
@@ -13,11 +15,13 @@
 }
 
 \usage{
-trees(pars, type=c("bisse", "bd"), n=1, max.taxa=Inf,
+trees(pars, type=c("bisse", "bd", "yule"), n=1, max.taxa=Inf,
       max.t=Inf, include.extinct=FALSE, ...)
 tree.bisse(pars, max.taxa=Inf, max.t=Inf, include.extinct=FALSE,
            x0=NA, ...)
 tree.bd(pars, max.taxa=Inf, max.t=Inf, include.extinct=FALSE, ...)
+tree.yule(pars, max.taxa=Inf, max.t=Inf, include.extinct=FALSE, ...)
+prune(phy, to.drop=NULL)
 }
 
 \arguments{
@@ -41,6 +45,9 @@ tree.bd(pars, max.taxa=Inf, max.t=Inf, include.extinct=FALSE, ...)
     of \code{NA} will randomly choose a state from the model's
     equilibrium distribution.}
   \item{...}{Additional arguments}
+  \item{phy}{A phylogeny, possibly with extinct species, produced by one
+    of the tree evolving functions.}
+  \item{to.drop}{Optional vector with the species names to drop.}
 }
 
 \details{
@@ -75,9 +82,15 @@ set.seed(3)
 phy <- tree.bisse(pars, max.taxa=30, x0=0)
 phy$tip.state
 
-plot(phy, label.offset=1, cex=.8)
-tiplabels(pch=21, bg=phy$tip.state+1, adj=1)
-nodelabels(pch=21, bg=phy$node.state+1)
+h <- history.from.sim.discrete(phy, 0:1)
+plot(h, phy)
+
+## Retain extinct species:
+set.seed(3)
+phy2 <- tree.bisse(pars, max.taxa=30, x0=0, include.extinct=TRUE)
+h2 <- history.from.sim.discrete(phy2, 0:1)
+plot(h2, phy2)
 }
 
 \keyword{models}
+\author{Richard G. FitzJohn}

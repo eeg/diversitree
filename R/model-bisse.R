@@ -1,176 +1,57 @@
-RTOL <- ATOL <- 1e-8
-eps <- 0
-branches.bisse <- function(y, len, pars, t0) {
-  ret <- t(bisse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
-  if ( all(ret[,3:4] >= eps) ) {
-    q <- ret[cbind(seq_along(len), as.integer(ret[,3] > ret[,4]) + 3)]
-    i <- q > 0
-    ret[i,3:4] <- ret[i,3:4] / q[i]
-    lq <- q
-    lq[i] <- log(q[i])
-    cbind(lq, ret, deparse.level=0)
-  } else {
-    ti <- len[length(len)]/2
-    len1 <- c(len[len <= ti], ti)
-    len2 <- len[len > ti] - ti
-    n1 <- length(len1)
-    ret1 <- Recall(y, len1, pars, t0)
-    ret2 <- Recall(ret1[n1,2:5], len2, pars, t0 + ti)
-    ret2[,1] <- ret2[,1] + ret1[n1,1]
-    rbind(ret1[-n1,], ret2)
-  }
-}
+## Models should provide:
+##   1. make
+##   2. print
+##   3. argnames / argnames<-
+##   4. find.mle
+## Generally, make will require:
+##   5. make.cache (also initial.tip, root)
+##   6. ll
+##   7. initial.conditions
+##   8. branches
+##   9. branches.unresolved
 
-branches.unresolved.bisse <- function(pars, len, unresolved) {
-  Nc <- unresolved$Nc
-  k <- unresolved$k
-  nsc <- unresolved$nsc
-  t <- len
-  nt <- max(Nc) + unresolved$nt.extra
-  
-  lambda0 <- pars[1]
-  lambda1 <- pars[2]
-  mu0 <- pars[3]
-  mu1 <- pars[4]
-  q01 <- pars[5]
-  q10 <- pars[6]
-  ret <- bucexpl(nt, mu0, mu1, lambda0, lambda1, q01, q10, t,
-          Nc, nsc, k)[,c(3,4,1,2)]
-  q <- ret[cbind(seq_along(len), as.integer(ret[,3] > ret[,4]) + 3)]
-  ret[,3:4] <- ret[,3:4] / q
-  cbind(log(q), ret, deparse.level=0)
-}
-
-initial.conditions.bisse <- function(init, pars, t, is.root=FALSE) {
-  e <- init[1,c(1,2)]
-  d <- init[1,c(3,4)] * init[2,c(3,4)]
-  if ( !is.root )
-    d <- d * pars[c(1,2)]
-  c(e, d)
-}
-
-ROOT.FLAT  <- 1
-ROOT.EQUI  <- 2
-ROOT.OBS   <- 3
-ROOT.GIVEN <- 4
-ROOT.BOTH  <- 5
-
-bisse.ll <- function(cache, pars, prior=NULL, root=ROOT.OBS,
-                     condition.surv=TRUE, root.p0=NA, root.p1=NA,
-                     intermediates=FALSE) {
-  if ( any(pars < 0) || any(!is.finite(pars)) )
-    return(-Inf)
-  ans <- all.branches(pars, cache, initial.conditions.bisse,
-                      branches.bisse, branches.unresolved.bisse)
-  loglik <- root.bisse(ans$init[cache$root,], ans$lq, pars, root,
-                       condition.surv, root.p0, root.p1)
-  if ( !is.null(prior) )
-    loglik <- loglik + prior.bisse(pars, prior)
-  if ( intermediates ) {
-    attr(loglik, "cache") <- cache
-    attr(loglik, "intermediates") <- ans
-    attr(loglik, "vals") <- ans$init[cache$root,]
-    attr(loglik, "logComp") <- sum(ans$lq)
-  }
-
-  loglik
-}
-
-
-prior.bisse <- function(pars, r)
-  - sum(pars * r)
-
+## 1: make
 make.bisse <- function(tree, states, unresolved=NULL, sampling.f=NULL,
-                       nt.extra=10) {
+                       nt.extra=10, safe=FALSE) {
   cache <- make.cache.bisse(tree, states, unresolved=unresolved,
                             sampling.f=sampling.f, nt.extra=10)
-  f <- function(pars, ..., fail.value = NULL) {
-    if (!is.null(fail.value)) 
-      protect(bisse.ll, fail.value)(cache, pars, ...)
-    else bisse.ll(cache, pars, ...)
-  }
-  class(f) <- c("bisse", "function")
-  f
+  branches <- make.branches.bisse(safe)
+  ll <- function(pars, ...) ll.bisse(cache, pars, branches, ...)
+  class(ll) <- c("bisse", "function")
+  ll
 }
 
-## BiSSE root calculations; this gets reused by a few things.
-root.bisse <- function(vars, lq, pars, root, condition.surv, root.p0=NA,
-                       root.p1=NA) {
-  if ( !is.na(root.p0) || !is.na(root.p1) )
-    if ( root != ROOT.GIVEN )
-      warning("Ignoring specified root state")
-  if ( !is.na(root.p1) )
-    root.p0 <- 1 - root.p1
-  
-  e.root <- vars[c(1,2)]
-  d.root <- vars[c(3,4)]
+## 2: print
+print.bisse <- function(x, ...) {
+  cat("BiSSE likelihood function:\n")
+  print(unclass(x))
+}
 
-  if ( root == ROOT.FLAT )
-    p <- 0.5
-  else if ( root == ROOT.EQUI )
-    p <- bisse.stationary.freq(pars)
-  else if ( root == ROOT.OBS )
-    p <- d.root[1]/sum(d.root)
-  else if ( root == ROOT.GIVEN )
-    p <- root.p0
-  else if ( root != ROOT.BOTH )
-    stop("Invalid root mode")
-
-  if ( condition.surv )
-    d.root <- d.root / (1-e.root)^2
-  logcomp <- sum(lq)
-  if ( root == ROOT.BOTH )
-    loglik <- log(d.root)# + logcomp
+## 3: argnames / argnames<-
+argnames.bisse <- function(x, ...) {
+  ret <- attr(x, "argnames")
+  if ( is.null(ret) )
+    c("lambda0", "lambda1", "mu0", "mu1", "q01", "q10")
   else
-    loglik <- log(sum(c(p, 1-p) * d.root)) + logcomp
-  loglik
+    ret
+}
+`argnames<-.bisse` <- function(x, value) {
+  if ( length(value) != 6 )
+    stop("Invalid names length")
+  attr(x, "argnames") <- value
+  x  
 }
 
-bisse.stationary.freq <- function(pars) {
-  lambda0 <- pars[1]
-  lambda1 <- pars[2]
-  mu0 <- pars[3]
-  mu1 <- pars[4]
-  q01 <- pars[5]
-  q10 <- pars[6]
-
-  g <- (lambda0 - mu0) - (lambda1 - mu1)
-  eps <- (lambda0 + mu0 + lambda1 + mu1)*1e-14
-  if ( abs(g) < eps ) {
-    if ( q01 + q10 == 0 )
-      0.5
-    else
-      q10/(q01 + q10)
-  } else {
-    roots <- quadratic.roots(g, q10+q01-g, -q10)
-    roots <- roots[roots >= 0 & roots <= 1]
-    if ( length(roots) > 1 )
-      NA
-    else
-      roots
-  }
+## 4: find.mle
+find.mle.bisse <- function(func, x.init, method,
+                           fail.value=NA, ...) {
+  if ( missing(method) )
+    method <- "optim"
+  NextMethod("find.mle", method=method, class.append="fit.mle.bisse")
 }
 
-quadratic.roots <- function(a, b, c)
-  (-b + c(-1, 1) * sqrt(b*b - 4*a*c))/(2 * a)
-
-starting.point.bisse <- function(tree, q.div=5) {
- fit <- suppressWarnings(birthdeath(tree))
- r <- fit$para[2]
- e <- fit$para[1]
- p <- rep(c(r/(1-e), r*e/(1-e), r/q.div), each=2)
- names(p) <- c("lambda0", "lambda1", "mu0", "mu1", "q01", "q10")
- p
-}
-bisse.starting.point <- function(tree, q.div=5) {
-  .Deprecated("starting.point.bisse")
-  starting.point.bisse(tree, q.div)
-}
-starting.point <- bisse.starting.point <- function(tree, q.div=5) {
-  .Deprecated("starting.point.bisse")
-  starting.point.bisse(tree, q.div)
-}
-
+## Make requires the usual functions:
+## 5: make.cache (initial.tip, root)
 make.cache.bisse <- function(tree, states, unresolved=NULL,
                              sampling.f=NULL, nt.extra=10) {
   if ( is.null(names(states)) )
@@ -248,6 +129,126 @@ initial.tip.bisse <- function(cache) {
     i <- i[-cache$unresolved$i]
   i[is.na(i)] <- 3
   list(y=y, i=i, types=sort(unique(i)))
+}
+
+## 6: ll
+ll.bisse <- function(cache, pars, branches, prior=NULL,
+                     condition.surv=TRUE, root=ROOT.OBS, root.p=NULL,
+                     intermediates=FALSE,
+                     root.p0=NA, root.p1=NA) {
+  if ( any(pars < 0) || any(!is.finite(pars)) || length(pars) != 6 )
+    return(-Inf)
+
+  if ( !is.na(root.p0) ) {
+    warning("root.p0 is deprecated: please use root.p instead")
+    root.p <- c(root.p0, 1-root.p0)
+  } else if ( !is.na(root.p1) ) {
+    warning("root.p1 is deprecated: please use root.p instead")
+    root.p <- c(1-root.p1, root.p1)
+  }
+  if ( !is.null(root.p) &&  root != ROOT.GIVEN )
+    warning("Ignoring specified root state")
+
+  xxsse.ll(pars, cache, initial.conditions.bisse,
+           branches, branches.unresolved.bisse,
+           condition.surv, root, root.p,
+           prior, intermediates)
+}
+
+## 7: initial.conditions:
+initial.conditions.bisse <- function(init, pars, t, is.root=FALSE) {
+  e <- init[1,c(1,2)]
+  d <- init[1,c(3,4)] * init[2,c(3,4)]
+  if ( !is.root )
+    d <- d * pars[c(1,2)]
+  c(e, d)
+}
+
+## 8: branches
+make.branches.bisse <- function(safe=FALSE) {
+  RTOL <- ATOL <- 1e-8
+  eps <- 0
+
+  bisse.ode <- make.ode("derivs", "diversitree", "initmod", 4, safe)
+  branches <- function(y, len, pars, t0)
+    t(bisse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
+  
+  make.branches(branches, 3:4)
+}
+
+## 9: branches.unresolved
+branches.unresolved.bisse <- function(pars, len, unresolved) {
+  Nc <- unresolved$Nc
+  k <- unresolved$k
+  nsc <- unresolved$nsc
+  t <- len
+  nt <- max(Nc) + unresolved$nt.extra
+  
+  lambda0 <- pars[1]
+  lambda1 <- pars[2]
+  mu0 <- pars[3]
+  mu1 <- pars[4]
+  q01 <- pars[5]
+  q10 <- pars[6]
+  ret <- bucexpl(nt, mu0, mu1, lambda0, lambda1, q01, q10, t,
+          Nc, nsc, k)[,c(3,4,1,2)]
+
+  q <- rowSums(ret[,3:4,drop=FALSE])
+  ret[,3:4] <- ret[,3:4] / q
+  cbind(log(q), ret, deparse.level=0)
+}
+
+## Additional functions
+bisse.stationary.freq <- function(pars) {
+  .Deprecated("stationary.freq.bisse")
+  stationary.freq.bisse(pars)
+}
+stationary.freq.bisse <- function(pars) {
+  lambda0 <- pars[1]
+  lambda1 <- pars[2]
+  mu0 <- pars[3]
+  mu1 <- pars[4]
+  q01 <- pars[5]
+  q10 <- pars[6]
+
+  g <- (lambda0 - mu0) - (lambda1 - mu1)
+  eps <- (lambda0 + mu0 + lambda1 + mu1)*1e-14
+  if ( abs(g) < eps ) {
+    if ( q01 + q10 == 0 )
+      0.5
+    else
+      q10/(q01 + q10)
+  } else {
+    roots <- quadratic.roots(g, q10+q01-g, -q10)
+    roots <- roots[roots >= 0 & roots <= 1]
+    if ( length(roots) > 1 )
+      NA
+    else
+      roots
+  }
+}
+
+starting.point.bisse <- function(tree, q.div=5, yule=FALSE) {
+  ## TODO: Use qs estimated from Mk2?  Can be slow is the only reason
+  ## I have not set this up by default.
+  ## find.mle(constrain(make.mk2(phy, phy$tip.state), q10 ~ q01), .1)$par
+  pars.yule <- c(coef(find.mle(make.yule(tree))), 0)
+
+  if ( yule )
+    pars.bd <- pars.yule
+  else
+    pars.bd <- coef(find.mle(make.bd(tree), pars.yule))
+
+  if  ( pars.bd[1] > pars.bd[2] )
+    p <- rep(c(pars.bd, (pars.bd[1] - pars.bd[2]) / q.div), each=2)
+  else
+    p <- rep(c(pars.bd, pars.bd[1] / q.div), each=2)
+  names(p) <- argnames.bisse(NULL)
+  p
+}
+starting.point <- bisse.starting.point <- function(tree, q.div=5) {
+  .Deprecated("starting.point.bisse")
+  starting.point.bisse(tree, q.div)
 }
 
 ## This is here for reference, but not exported yet.  It should be

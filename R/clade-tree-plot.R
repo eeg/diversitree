@@ -46,7 +46,7 @@ plot.clade.tree <- function(x, use.edge.length=TRUE,
     names(n.taxa) <- names(x$clades)
   }
   
-  yy <- node.height(x, n.taxa)
+  yy <- node.height2(x, n.taxa)
 
   if (is.null(x.lim)) {
     x.lim <- c(0, NA)
@@ -96,7 +96,7 @@ plot.clade.tree <- function(x, use.edge.length=TRUE,
 }
 
 ## Pure R versions of node.height/node.depth etc.
-node.height <- function(x, n.taxa=NULL) {
+node.height2 <- function(x, n.taxa=NULL) {
   n.tip <- length(x$tip.label)
   n.edge <- nrow(x$edge)
   n.node <- x$Nnode
@@ -138,61 +138,32 @@ node.height <- function(x, n.taxa=NULL) {
   yy
 }
 
-node.depth <- function(x) {
-  n.tip <- length(x$tip.label)
-  n.edge <- nrow(x$edge)
-  n.node <- x$Nnode
-  edge1 <- x$edge[,1]
-  edge2 <- x$edge[,2]
-
-  xx <- numeric(n.tip + n.node)
-  xx[1:n.tip] <- 1
-  for ( i in 1:n.edge)
-    xx[edge1[i]] = xx[edge1[i]] + xx[edge2[i]]
-  xx <- xx - 1
-  max(xx) - xx
-}
-
-node.depth.edgelength <- function(x) {
-  n.tip <- length(x$tip.label)
-  n.edge <- nrow(x$edge)
-  n.node <- x$Nnode
-  edge1 <- x$edge[,1]
-  edge2 <- x$edge[,2]
-  edge.length <- x$edge.length
-
-  xx <- numeric(n.tip + n.node)
-  for ( i in n.edge:1)
-    xx[edge2[i]] = xx[edge1[i]] + edge.length[i];
-  xx
-}
-
 ## Tweaked phylogram.plot function
-new.phylogram.plot <- function(x, Ntip, Nnode, xx, yy,
+new.phylogram.plot <- function(x, n.tip, n.node, xx, yy,
                                edge.color, edge.width) {
   edge <- x$edge
-  nodes <- (Ntip + 1):(Ntip + Nnode)
+  nodes <- (n.tip + 1):(n.tip + n.node)
   x0v <- xx[nodes]
-  y0v <- y1v <- numeric(Nnode)
+  y0v <- y1v <- numeric(n.node)
   for (i in nodes) {
     j <- edge[which(edge[, 1] == i), 2]
-    y0v[i - Ntip] <- min(yy[j])
-    y1v[i - Ntip] <- max(yy[j])
+    y0v[i - n.tip] <- min(yy[j])
+    y1v[i - n.tip] <- max(yy[j])
   }
-  sq <- if (Nnode == 1) 
-    1:Ntip
-  else c(1:Ntip, nodes[-1])
+  sq <- if (n.node == 1) 
+    1:n.tip
+  else c(1:n.tip, nodes[-1])
   y0h <- yy[sq]
   x1h <- xx[sq]
   pos <- match(sq, edge[, 2])
   x0h <- xx[edge[pos, 1]]
   e.w <- unique(edge.width)
   if (length(e.w) == 1) 
-    width.v <- rep(e.w, Nnode)
+    width.v <- rep(e.w, n.node)
   else {
-    width.v <- rep(1, Nnode)
-    for (i in 1:Nnode) {
-      br <- edge[which(edge[, 1] == i + Ntip), 2]
+    width.v <- rep(1, n.node)
+    for (i in 1:n.node) {
+      br <- edge[which(edge[, 1] == i + n.tip), 2]
       width <- unique(edge.width[br])
       if (length(width) == 1) 
         width.v[i] <- width
@@ -200,11 +171,11 @@ new.phylogram.plot <- function(x, Ntip, Nnode, xx, yy,
   }
   e.c <- unique(edge.color)
   if (length(e.c) == 1) 
-    color.v <- rep(e.c, Nnode)
+    color.v <- rep(e.c, n.node)
   else {
-    color.v <- rep("black", Nnode)
-    for (i in 1:Nnode) {
-      br <- which(edge[, 1] == i + Ntip)
+    color.v <- rep("black", n.node)
+    for (i in 1:n.node) {
+      br <- which(edge[, 1] == i + n.tip)
       color <- unique(edge.color[br])
       if (length(color) == 1) 
         color.v[i] <- color

@@ -161,6 +161,8 @@ make.cache <- function(tree) {
 
   order <- get.ordering(children, is.tip, root)
   depth <- c(rep(0, n.tip), as.numeric(branching.times(tree)))
+
+  anc <- ancestors(parent, order)
   
   ans <- list(len=tree$edge.len[match(idx, edge[,2])],
               children=children,
@@ -168,7 +170,8 @@ make.cache <- function(tree) {
               order=order,
               root=root,
               n.tip=n.tip,
-              depth=depth)
+              depth=depth,
+              ancestors=anc)
   ans
 }
 
@@ -185,4 +188,111 @@ get.ordering <- function(children, is.tip, root) {
       break
   }
   as.vector(unlist(rev(todo)))
+}
+
+ROOT.FLAT  <- 1
+ROOT.EQUI  <- 2
+ROOT.OBS   <- 3
+ROOT.GIVEN <- 4
+ROOT.BOTH  <- 5
+ROOT.ALL   <- ROOT.BOTH
+root.xxsse <- function(vars, pars, cache, condition.surv, root.mode,
+                       root.p) {
+  logcomp <- sum(vars$lq)
+  vars <- vars$init[cache$root,]
+  k <- length(vars) / 2
+  e.root <- vars[seq_len(k)]
+  d.root <- vars[(k+1):(2*k)]
+
+  if ( root.mode == ROOT.FLAT )
+    p <- 1/k
+  else if ( root.mode == ROOT.OBS )
+    p <- d.root / sum(d.root)
+  else if ( root.mode == ROOT.EQUI )
+    if ( k == 2 )
+      p <- stationary.freq.bisse(pars)
+    else
+      stop("ROOT.EQUI only possible when k = 2")
+  else if ( root.mode == ROOT.GIVEN )
+    p <- root.p
+  else if ( root.mode != ROOT.ALL )
+    stop("Invalid root mode")
+
+  if ( condition.surv )
+    d.root <- d.root / (1-e.root)^2
+  if ( root.mode == ROOT.BOTH )
+    loglik <- log(d.root)# + logcomp
+  else
+    loglik <- log(sum(p * d.root)) + logcomp
+  loglik
+}
+
+cleanup <- function(loglik, pars, prior=NULL, intermediates=FALSE,
+                    cache, vals) {
+  if ( is.null(prior) )
+    p <- loglik
+  else if ( is.numeric(prior) )
+    p <- loglik + prior.default(pars, prior)
+  else if ( is.function(prior) )
+    p <- loglik + prior(pars)
+  else
+    stop("Invalid 'prior' argument")
+    
+  if ( intermediates ) {
+    attr(p, "cache") <- cache
+    attr(p, "intermediates") <- vals
+    attr(p, "vals") <- vals$init[cache$root,]
+  }
+  p
+}
+
+## Which leads to an all singing, all dancing function:
+xxsse.ll <- function(pars, cache, initial.conditions,
+                     branches, branches.unresolved, 
+                     condition.surv, root.mode, root.p,
+                     prior, intermediates) {
+  ans <- all.branches(pars, cache, initial.conditions,
+                      branches, branches.unresolved)
+  loglik <- root.xxsse(ans, pars, cache, condition.surv,
+                       root.mode, root.p)
+  cleanup(loglik, pars, prior, intermediates, cache, ans)
+}
+
+make.prior.exponential <- function(r) {
+  function(pars)
+    -sum(pars * r)
+}
+
+prior.default <- function(pars, r) {
+  .Deprecated("make.prior.exponential")
+  - sum(pars * r)
+}
+
+## Convert a branches function into one that adds log-compensation.
+## This is not compulsary to use, but should make life easier.
+make.branches <- function(branches, idx, eps=0) {
+  if ( length(idx) > 0 )
+    function(y, len, pars, t0) {
+      ret <- branches(y, len, pars, t0)
+      if ( all(ret[,idx] >= eps) ) {
+        q <- rowSums(ret[,idx,drop=FALSE])
+        i <- q > 0
+        ret[i,idx] <- ret[i,idx] / q[i]
+        lq <- q
+        lq[i] <- log(q[i])
+        cbind(lq, ret, deparse.level=0)
+      } else {
+        ti <- len[length(len)]/2
+        len1 <- c(len[len <= ti], ti)
+        len2 <- len[len > ti] - ti
+        n1 <- length(len1)
+        ret1 <- Recall(y, len1, pars, t0)
+        ret2 <- Recall(ret1[n1,-1], len2, pars, t0 + ti)
+        ret2[,1] <- ret2[,1] + ret1[n1,1]
+        rbind(ret1[-n1,], ret2)
+      }
+    }
+  else
+    function(y, len, pars, t0)
+      cbind(0, branches(y, len, pars, t0), deparse.level=0)
 }
