@@ -262,7 +262,7 @@ xxsse.ll <- function(pars, cache, initial.conditions,
 
 make.prior.exponential <- function(r) {
   function(pars)
-    -sum(pars * r)
+    sum(log(r) - pars * r)
 }
 
 prior.default <- function(pars, r) {
