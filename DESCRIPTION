@@ -1,4 +1,4 @@
-Package: diversitree
+Package: diversitreeNF
 Title: diversitree: comparative phylogenetic tests of diversification
 Version: 0.4-4
 Date: 2010-01-19
@@ -13,6 +13,7 @@ Description: Contains an R implementation of BiSSE (Binary State
   trait method (QuaSSE) and multi-state/multi-trait BiSSE-like
   methods.  Other included methods include Markov models of discrete
   trait evolution and constant rate speciation and extinction.
+  *** EEG: includes node-fixing ***
 License: GPL (>=2)
 URL: http://www.zoology.ubc.ca/prog/diversitree
 Packaged: 2010-02-03 01:08:19 UTC; rich

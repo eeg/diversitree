@@ -1,5 +1,5 @@
 ## NAMESPACE
-useDynLib(diversitree)
+useDynLib(diversitreeNF)
 export(make.bisse)
 export(make.bd)
 export(make.yule)
