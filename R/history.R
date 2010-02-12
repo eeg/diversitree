@@ -12,13 +12,15 @@
 ## time, measured from the start of the branch (t=0) and the second
 ## column is the state at that time.
 make.history <- function(phy, tip.state, node.state, history,
-                         discrete=TRUE, states=NULL) {
-  if ( length(tip.state) != length(phy$tip.label) )
-    stop("tip.state of wrong length")
-  if ( length(node.state) != phy$Nnode )
-    stop("node.state of wrong length")
-  if ( length(history) != nrow(phy$edge) )
-    stop("history of wrong length")
+                         discrete=TRUE, states=NULL, check=TRUE) {
+  if ( check ) {
+    if ( length(tip.state) != length(phy$tip.label) )
+      stop("tip.state of wrong length")
+    if ( length(node.state) != phy$Nnode )
+      stop("node.state of wrong length")
+    if ( length(history) != nrow(phy$edge) )
+      stop("history of wrong length")
+  }
   structure(list(tip.state=tip.state,
                  node.state=node.state,
                  history=history,
@@ -75,7 +77,8 @@ plot.history <- function(x, phy, cols=seq_along(states),
 
   xy <- plot.phylo.node.coords(phy)
   obj <- plot.history.coords(phy, xy, x)
-  plot.phylo.prepare(phy, xy, xlim, ylim, cex, show.tip.label, label.offset)
+  plot.phylo.prepare(phy, xy, xlim, ylim, cex, show.tip.label,
+                     label.offset, ...)
 
   ## Improve the colour->tip mapping.  There are a couple of options -
   ## we could have data in {0,1} or {1,2,...,k}

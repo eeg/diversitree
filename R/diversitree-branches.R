@@ -115,6 +115,13 @@ all.branches <- function(pars, cache, initial.conditions, branches,
       idx <- tips[which(y$i == i)]
       t <- len[idx]
       ans <- branches(y$y[i,], sort(unique(t)), pars, 0)
+      ## TODO: tapply(x,x) is slow and error prone where there are
+      ## small (O(1e-15)) differences between otherwise identical
+      ## lengths.  Consider
+      ##   t.uniq <- sort(unique(t))
+      ##   ans <- branches(y$y[i,], t.uniq, pars, 0)
+      ##   ans[match(t, t.uniq),,drop=FALSE]
+      ## instead.
       ans <- ans[tapply(t, t),,drop=FALSE]
       lq[idx] <- ans[,1]
       branch.base[idx,] <- ans[,-1]
@@ -144,6 +151,7 @@ make.cache <- function(tree) {
   if (inherits(tree, "phylo"))
     class(tree) <- "phylo"
   edge <- tree$edge
+  edge.length <- tree$edge.length
   idx <- seq_len(max(edge))
   n.tip <- length(tree$tip.label)
   root <- n.tip + 1
@@ -164,14 +172,16 @@ make.cache <- function(tree) {
 
   anc <- ancestors(parent, order)
   
-  ans <- list(len=tree$edge.len[match(idx, edge[,2])],
+  ans <- list(len=edge.length[match(idx, edge[,2])],
               children=children,
               parent=parent,
               order=order,
               root=root,
               n.tip=n.tip,
               depth=depth,
-              ancestors=anc)
+              ancestors=anc,
+              edge=edge,
+              edge.length=edge.length)
   ans
 }
 
@@ -262,7 +272,8 @@ xxsse.ll <- function(pars, cache, initial.conditions,
 
 make.prior.exponential <- function(r) {
   function(pars)
-    -sum(pars * r)
+    ## -sum(pars * r) - un-normalised.
+    sum(log(r) - pars * r)
 }
 
 prior.default <- function(pars, r) {

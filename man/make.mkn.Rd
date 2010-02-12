@@ -17,7 +17,7 @@
 
 \usage{
 make.mk2(tree, states)
-make.mkn(tree, states, k)
+make.mkn(tree, states, k, use.mk2=FALSE)
 }
 
 \arguments{
@@ -25,6 +25,9 @@ make.mkn(tree, states, k)
   \item{states}{A vector of character states, each of which must be 0 or
     1 for \code{make.mk2} or 1 to \code{k} for \code{make.mkn}.}
   \item{k}{Number of states to model.}
+  \item{use.mk2}{Use Mk2 where \code{k==2} for a slight speedup?  This
+    is disabled by default to make likelihoods more comparable without
+    introducing approximation errors.}
 }
 
 \details{
@@ -82,7 +85,6 @@ make.mkn(tree, states, k)
 }
 
 \examples{
-t0 <- proc.time()
 ## Simulate a tree and character distribution.  This is on a birth-death
 ## tree, with high rates of character evolution and an asymmetry in the
 ## character transition rates.
@@ -113,7 +115,7 @@ fit.mkn <- find.mle(lik.mkn, p)
 fit.mkn[1:2]
 
 ## These are the same (except for the naming of arguments)
-all.equal(fit.mkn, fit.mk2, check.attr=FALSE)
+all.equal(fit.mkn[-8], fit.mk2[-8], check.attr=FALSE)
 
 ## Equivalence to ape's \link{ace} function:
 model <- matrix(c(0, 2, 1, 0), 2)
