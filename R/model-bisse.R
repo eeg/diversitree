@@ -53,7 +53,8 @@ find.mle.bisse <- function(func, x.init, method,
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
 make.cache.bisse <- function(tree, states, unresolved=NULL,
-                             sampling.f=NULL, nt.extra=10) {
+                             sampling.f=NULL, nt.extra=10, 
+                             node.fixing=NULL) {
   if ( is.null(names(states)) )
     stop("The states vector must contain names")
 
@@ -104,12 +105,20 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
   states <- states[tree$tip.label]
   names(states) <- tree$tip.label
 
+  ## Check node.fixing
+  if ( !is.null(node.fixing) ) {
+    if (length(node.fixing) != Nnode(tree) || class(node.fixing) != "numeric")
+      stop("Invalid node.fixing vector")
+    node.fixing = c(rep(NA, Ntip(tree)), node.fixing)
+  }
+
   cache <- make.cache(tree)
   cache$tip.state  <- states
   cache$unresolved <- unresolved
   cache$sampling.f <- sampling.f
   cache$nt.extra   <- nt.extra
   cache$y <- initial.tip.bisse(cache)
+  cache$node.fixing <- node.fixing
   cache
 }
 
@@ -137,7 +146,7 @@ initial.tip.bisse <- function(cache) {
 ## 6: ll
 ll.bisse <- function(cache, pars, branches, prior=NULL,
                      condition.surv=TRUE, root=ROOT.OBS, root.p=NULL,
-                     intermediates=FALSE,
+                     intermediates=FALSE, node.fixing=NULL,
                      root.p0=NA, root.p1=NA) {
   if ( any(pars < 0) || any(!is.finite(pars)) || length(pars) != 6 )
     return(-Inf)
@@ -154,7 +163,7 @@ ll.bisse <- function(cache, pars, branches, prior=NULL,
 
   xxsse.ll(pars, cache, initial.conditions.bisse,
            branches, branches.unresolved.bisse,
-           condition.surv, root, root.p,
+           condition.surv, root, root.p, node.fixing,
            prior, intermediates)
 }
 

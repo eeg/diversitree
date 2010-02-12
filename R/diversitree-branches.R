@@ -78,7 +78,7 @@
 ##     'len': the ...
 ##   TODO: documentation coming - see source!
 all.branches <- function(pars, cache, initial.conditions, branches,
-                         branches.unresolved) {
+                         branches.unresolved, node.fixing) {
   len <- cache$len
   depth <- cache$depth
   children <- cache$children
@@ -132,6 +132,15 @@ all.branches <- function(pars, cache, initial.conditions, branches,
     y.in <- initial.conditions(branch.base[children[i,],], pars, depth[i])
     if ( !all(is.finite(y.in)) )
       stop("Bad initial conditions: calculation failure along branches?")
+
+    # node fixing (non-root)
+    if (!is.null(node.fixing))
+    {
+      a <- node.fixing[i]
+      if (!is.na(a))
+        y.in[c(3,4)] <- y.in[c(3,4)] * c(1-a, a)
+    }
+
     branch.init[i,] <- y.in
     ans <- branches(y.in, len[i], pars, depth[i])
     lq[i] <- ans[1]
@@ -140,6 +149,15 @@ all.branches <- function(pars, cache, initial.conditions, branches,
 
   y.in <- initial.conditions(branch.base[children[root,],], pars,
                              TRUE, depth[root])
+
+  # node fixing (root)
+  if (!is.null(node.fixing))
+  {
+    a <- node.fixing[root]
+    if (!is.na(a))
+      y.in[c(3,4)] <- y.in[c(3,4)] * c(1-a, a)
+  }
+
   branch.init[root,] <- y.in
   list(init=branch.init, base=branch.base, lq=lq)
 }
@@ -261,10 +279,10 @@ cleanup <- function(loglik, pars, prior=NULL, intermediates=FALSE,
 ## Which leads to an all singing, all dancing function:
 xxsse.ll <- function(pars, cache, initial.conditions,
                      branches, branches.unresolved, 
-                     condition.surv, root.mode, root.p,
+                     condition.surv, root.mode, root.p, node.fixing,
                      prior, intermediates) {
   ans <- all.branches(pars, cache, initial.conditions,
-                      branches, branches.unresolved)
+                      branches, branches.unresolved, node.fixing)
   loglik <- root.xxsse(ans, pars, cache, condition.surv,
                        root.mode, root.p)
   cleanup(loglik, pars, prior, intermediates, cache, ans)
