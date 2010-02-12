@@ -249,7 +249,7 @@ starting.point.gse2 <- function(tree, q.div=5, yule=FALSE) {
   ## TODO: Use qs estimated from Mk2?  Can be slow is the only reason
   ## I have not set this up by default.
   ## find.mle(constrain(make.mk2(phy, phy$tip.state), q10 ~ q01), .1)$par
-  pars.bd <- starting.point.bd(tree, yule)
+  pars.bd <- suppressWarnings(starting.point.bd(tree, yule))
   if  ( pars.bd[1] > pars.bd[2] )
     p <- rep(c(pars.bd, (pars.bd[1] - pars.bd[2]) / q.div), each=2)
   else
