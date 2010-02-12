@@ -1,3 +1,98 @@
+2010-02-02  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* DESCRIPTION: Bumped version number to 0.4-4
+
+	* R/asr-mkn.R: Fixed bug in use of make.history() (relied on a 'phy'
+	object in .GlobalEnv)
+
+	* R/history.R: Check on trees is optional (required for above bug
+	fix)
+
+	* R/make.mkn.R: Change default of make.mkn's use.mk2 argument to
+	FALSE so that results are numerically more consistent, if a little
+	slower.
+
+	* R/simulate-bisse.R: Swap bisse.stationary.freq ->
+	stationary.freq.bisse
+
+	* R/simulation.R: prune() throwing error on single species trees;
+	now gives up.
+
+	* man/asr-bisse.Rd, man/asr-mn.Rd, man/make.mkn.Rd, man/asr.Rd:
+	minor documentation fixes/improvements.
+
+2010-01-28  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* man/asr-bisse.Rd: Added BiSSE/Mk2 equivalency section to help
+	page.
+
+2010-01-27  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* NAMESPACE: Updated to reflect changes below
+
+	* R/asr-bisse.R: Added marginal ASR under BiSSE to diversitree.
+
+	* R/asr-mkn.R: Marginal ASR under Mk2/Mkn now works again, plus
+	various changes and bug fixes.  Works as it should now.
+
+	* R/asr.R: do.asr.marginal no longer runs all.branches(), and
+	expects this passed in.  This helps with the mk2 code.  Margnal
+	asr now takes correct node numbers (I think).
+
+	* R/diversitree-branches.R (make.prior.exponential): Normalise the
+	exponential prior, for use with computing Bayes factors, etc.,
+	following suggestion from Emma Goldberg.
+
+	* R/history.R: Wimp out from summarising multiple histories.
+
+	* R/model-mkn-legacy.R: Tidy out some commented out code, and
+	adding old asr.marginal.mkn.old function.
+
+	* R/model-mkn.R: New versions of the mk2 & mkn asr functions that
+	use the new mk2/mkn likelihood functions (forgot to add
+	yesterday).
+
+	* R/plot-alt.R: plot functions pass ... through to plot()
+
+	* man/asr-bisse.Rd: New documentation
+
+	* man/asr-mkn.Rd: New documentation
+
+2010-01-26  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* R/asr.R: New asr generics
+
+	* R/asr-mkn.R: New versions of the mk2 & mkn asr functions that
+	use the new mk2/mkn likelihood functions (see below).
+
+	* R/mcmc.R: Check that 'w' is correct length.
+
+	* R/model-bisse.R: Add check for largest unresolved clade (200
+	spp), preventing possible crash.
+
+	* R/model-mkn-legacy.R: Old Mk2 code that uses all.branches();
+	preserved for the next version or so.
+
+	* R/model-mkn.R: New Mk2/Mkn model that is about 20-50 times
+	faster than the old version (does all branches at once).
+
+	* man/make.mkn.R: Small fix to reflect new version
+
+	* src/mkn.c: C code required for new mkn/mk2 code.
+
+2010-01-21  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* R/clade-tree.R: Was totally broken due to overloading of
+	"ancestors2" function.  Also fixed bug when there is exactly one
+	polytomy and replaced drop.tip and drop.tip.fixed.
+
+	* R/diversitree-branches.R (make.cache): Return "edge" and
+	"edge.length" as part of the cache object.
+
+	* R/model-bisse.R: Bug in branches.unresolved.bisse due to missing
+	drop=FALSE fixed.  Also suppress warnings when finding a BiSSE
+	starting point, as these are not interesting.
+
 2010-01-19  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
 
 	* DESCRIPTION: updated to version 0.4-3

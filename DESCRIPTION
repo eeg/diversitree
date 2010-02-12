@@ -1,6 +1,6 @@
 Package: diversitreeGSE
 Title: diversitree: comparative phylogenetic tests of diversification
-Version: 0.4-3
+Version: 0.4-4
 Date: 2010-01-19
 Author: Richard G. FitzJohn <fitzjohn@zoology.ubc.ca>
 Maintainer: Richard G. FitzJohn <fitzjohn@zoology.ubc.ca>
@@ -11,5 +11,9 @@ Description: Contains an R implementation of BiSSE (Binary State
   701) and its unresolved tree extensions (FitzJohn et al. 2009:
   Syst. Biol. 58: 595).  Future versions will contain a quantitative
   trait method (QuaSSE) and multi-state/multi-trait BiSSE-like
-  methods.  *** EEG: includes GSE2 ***
+  methods.  Other included methods include Markov models of discrete
+  trait evolution and constant rate speciation and extinction.
+  *** EEG: includes GSE2 ***
 License: GPL (>=2)
+URL: http://www.zoology.ubc.ca/prog/diversitree
+Packaged: 2010-02-03 01:08:19 UTC; rich
