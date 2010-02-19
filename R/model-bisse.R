@@ -12,9 +12,10 @@
 
 ## 1: make
 make.bisse <- function(tree, states, unresolved=NULL, sampling.f=NULL,
-                       nt.extra=10, safe=FALSE) {
+                       nt.extra=10, safe=FALSE, node.fixing=NULL) {
   cache <- make.cache.bisse(tree, states, unresolved=unresolved,
-                            sampling.f=sampling.f, nt.extra=10)
+                            sampling.f=sampling.f, nt.extra=10, 
+                            node.fixing=node.fixing)
   branches <- make.branches.bisse(safe)
   ll <- function(pars, ...) ll.bisse(cache, pars, branches, ...)
   class(ll) <- c("bisse", "function")
@@ -146,8 +147,7 @@ initial.tip.bisse <- function(cache) {
 ## 6: ll
 ll.bisse <- function(cache, pars, branches, prior=NULL,
                      condition.surv=TRUE, root=ROOT.OBS, root.p=NULL,
-                     intermediates=FALSE, node.fixing=NULL,
-                     root.p0=NA, root.p1=NA) {
+                     intermediates=FALSE, root.p0=NA, root.p1=NA) {
   if ( any(pars < 0) || any(!is.finite(pars)) || length(pars) != 6 )
     return(-Inf)
 
@@ -163,8 +163,7 @@ ll.bisse <- function(cache, pars, branches, prior=NULL,
 
   xxsse.ll(pars, cache, initial.conditions.bisse,
            branches, branches.unresolved.bisse,
-           condition.surv, root, root.p, node.fixing,
-           prior, intermediates)
+           condition.surv, root, root.p, prior, intermediates)
 }
 
 ## 7: initial.conditions:
@@ -179,7 +178,7 @@ initial.conditions.bisse <- function(init, pars, t, is.root=FALSE) {
 ## 8: branches
 make.branches.bisse <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
-  bisse.ode <- make.ode("derivs", "diversitree", "initmod", 4, safe)
+  bisse.ode <- make.ode("derivs", "diversitreeNF", "initmod", 4, safe)
   branches <- function(y, len, pars, t0)
     t(bisse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   

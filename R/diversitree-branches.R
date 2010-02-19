@@ -78,12 +78,13 @@
 ##     'len': the ...
 ##   TODO: documentation coming - see source!
 all.branches <- function(pars, cache, initial.conditions, branches,
-                         branches.unresolved, node.fixing) {
+                         branches.unresolved) {
   len <- cache$len
   depth <- cache$depth
   children <- cache$children
   order <- cache$order[-length(cache$order)]
   root <- cache$root
+  node.fixing <- cache$node.fixing
 
   unresolved <- cache$unresolved
 
@@ -279,10 +280,10 @@ cleanup <- function(loglik, pars, prior=NULL, intermediates=FALSE,
 ## Which leads to an all singing, all dancing function:
 xxsse.ll <- function(pars, cache, initial.conditions,
                      branches, branches.unresolved, 
-                     condition.surv, root.mode, root.p, node.fixing,
+                     condition.surv, root.mode, root.p,
                      prior, intermediates) {
   ans <- all.branches(pars, cache, initial.conditions,
-                      branches, branches.unresolved, node.fixing)
+                      branches, branches.unresolved)
   loglik <- root.xxsse(ans, pars, cache, condition.surv,
                        root.mode, root.p)
   cleanup(loglik, pars, prior, intermediates, cache, ans)
