@@ -78,6 +78,9 @@ S3method(asr.stoch, mkn)
 ## ASR/BiSSE
 S3method(asr.marginal, bisse)
 
+## ASR/EEG
+export(reconstruct.bisse)
+
 
 ## Support for "clade.tree"s
 export(polytomies.to.clades)
