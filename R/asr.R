@@ -14,12 +14,11 @@ asr.marginal <- function(lik, pars, nodes=NULL, ...) {
   UseMethod("asr.marginal")
 }
 
-asr.joint <- function(lik, pars, n=1, root.state=NA, simplify=TRUE,
-                      ...) {
+asr.joint <- function(lik, pars, n=1, simplify=TRUE, ...) {
   UseMethod("asr.joint")
 }
 
-asr.stoch <- function(lik, pars, n=1, root.state=NA, ...) {
+asr.stoch <- function(lik, pars, n=1, ...) {
   UseMethod("asr.stoch")
 }
 
@@ -35,13 +34,13 @@ asr.marginal.constrained <- function(lik, pars, nodes=NULL, ...) {
   NextMethod("asr.marginal")
 }
 
-asr.joint.constrained <- function(lik, pars, n=1, root.state=NA, ...) {
+asr.joint.constrained <- function(lik, pars, n=1, simplify=TRUE, ...) {
   pars <- lik(pars, pars.only=TRUE)
   lik <- attr(lik, "func")
   NextMethod("asr.joint")
 }
 
-asr.stoch.constrained <- function(lik, pars, n=1, root.state=NA, ...) {
+asr.stoch.constrained <- function(lik, pars, n=1, ...) {
   pars <- lik(pars, pars.only=TRUE)
   lik <- attr(lik, "func")
   NextMethod("asr.stoch")
@@ -56,19 +55,26 @@ asr.stoch.constrained <- function(lik, pars, n=1, root.state=NA, ...) {
 ## used here to get around this this though.
 ##
 ## The argument 'res' is the result of running all.branches
+##
+## TODO: There is a substantial optimisation for doing multiple
+## samples at once; at each node, we just have to interate over the
+## possible states at that node, as these will match for
+##   di * pij[nd,i,]
+## And then sample the appropriate number of points.
 do.asr.marginal <- function(pars, cache, res, nodes, states.idx,
                             initial.conditions,
-                            branches, branches.unresolved, ...) {
+                            branches, branches.unresolved, root,
+                            ...) {
   ## Store these for easier calculation.
   children <- cache$children
   parent <- cache$parent
   len <- cache$len
   depth <- cache$depth
-  root <- cache$root
+  root.idx <- cache$root
   anc <- cache$anc
 
   if ( is.null(nodes) )
-    nodes <- root:max(cache$order)
+    nodes <- root.idx:max(cache$order)
   else
     nodes <- nodes + cache$n.tip
 
@@ -84,7 +90,7 @@ do.asr.marginal <- function(pars, cache, res, nodes, states.idx,
       branch.base <- res$base
       branch.init[nd,states.idx[-st]] <- 0
       y.in <- branch.init[nd,]
-      j <- nd # Needed for when nd == root
+      ## j <- nd # Needed for when nd == root.idx - TODO:poss no longer?
 
       for ( i in anc.nd ) {
         ans <- branches(y.in, len[i], pars, depth[i])
@@ -92,21 +98,16 @@ do.asr.marginal <- function(pars, cache, res, nodes, states.idx,
         branch.base[i,] <- ans[-1]
         j <- parent[i]
         y.in <- initial.conditions(branch.base[children[j,],], pars,
-                                   depth[j], j == root)
+                                   depth[j], j == root.idx)
         branch.init[j,] <- y.in
       }
 
-      ## This bit is the root calculation:
-      ## TODO: function that takes
-      ##   branch.init[cache$root,]
-      ## and the parameters, converting it into a likelihood?
-      d.root <- branch.init[cache$root,states.idx]
-      if ( sum(d.root) > 0 ) {
-        p.root <- d.root/sum(d.root) # ROOT.OBS
-        p[st] <- log(sum(p.root * d.root)) + sum(lq)
-      } else {
+      ans <- root(pars, branch.init[root.idx,], lq)
+      
+      if ( is.na(ans) )
         p[st] <- -Inf # explots R's exp(-Inf) == 0
-      }
+      else
+        p[st] <- ans
     }
 
     pp <- exp(p - max(p))
@@ -118,38 +119,73 @@ do.asr.marginal <- function(pars, cache, res, nodes, states.idx,
 
 ## Utility function for drawing one or more samples from the joint
 ## distribution.
-do.asr.joint <- function(pars, n, root.state, cache, li, pij,
-                         node.labels=NULL, simplify=TRUE, ...) {
+## TODO: Allow root.state to be either a percentage or a function of
+## the parameters?  -- no need for the latter, as the parameters do
+## not change in this.  root.p[i] gives the probability that the root is
+## in state i; this can probably replace root.state, as the two just
+## fight each other.
+
+## li is len * k matrix; for a node n, li[n,] comes in the order
+##   Pr(D_n|1), Pr(D_n|2), ..., Pr(D_n|k)
+## Pr(D|i) is the conditional probability of the data conditional on a
+## node being in the state 'i'.  It .
+
+## pij is a len * (k*k) column matrix; the row n comes in the order
+##   p11, p21, ..., pk1, p12, ..., pkk
+## so that
+##   matrix(pij[nd,], k, k)
+## is a matrix with where m[i,j] is the probability of moving from
+## state i to state j.  This means that
+##   pij2 <- array(pij, c(nrow(pij), k, k))
+## gives an array where
+##   pij2[nd, i, j]
+## is the probability of an i->j transition along the branch leading
+## to nd.  Note that the sums of all rows (pij2[n,i,] for all n, i)
+## equals 1, as a branch ends at some state with probability 1:
+##   all(abs(apply(pij2, 1:2, sum)[-root,] - 1) < 1e-8)
+do.asr.joint <- function(n, cache, li, pij, root.p, simplify=TRUE,
+                         ...) {
   parent <- cache$parent
   len <- length(cache$len)
   root <- cache$root
   tips <- seq_len(cache$n.tip)
-  
-  f <- function() {
-    k <- ncol(li)
-    idx <- matrix(seq_len(k*k), k, k)
-    anc.states <- rep(as.numeric(NA), len)
+  k <- ncol(li)
+  pij2 <- array(pij, c(len, k, k))
 
-    if ( is.na(root.state) )
-      root.state <- sample(k, 1, FALSE, li[root,])
-    anc.states[root] <- root.state
-    
-    for ( i in rev(cache$order)[-1] ) {
-      parent.state <- anc.states[parent[i]]
-      p <- li[i,] * pij[i,idx[,parent.state]] # di * pij
-      anc.states[i] <- sample(k, 1, FALSE, p)
+  anc.states <- matrix(NA, n, len)
+  anc.states[,root] <- sample(k, n, TRUE, root.p)
+  for ( i in rev(cache$order)[-1] ) {
+    parent.state <- anc.states[,parent[i]]
+    for ( j in seq_len(k) ) {
+      idx <- parent.state == j
+      nj <- sum(idx)
+      if ( nj > 0 ) {
+        p <- li[i,] * pij2[i,j,] # di * pij
+        anc.states[idx,i] <- sample(k, nj, TRUE, p)
+      }
     }
-
-    structure(anc.states[-tips], names=node.labels)
   }
   
-  if ( n == 1 && simplify )
-    x <- f()
-  else {
-    x <- replicate(n, f(), simplify)
-    if ( simplify )
-      x <- t(x)
+  anc.states[,-tips,drop=simplify]
+}
+
+## TODO: explain this one...
+do.asr.jointmean <- function(cache, li, pij, root.p, ...) {
+  parent <- cache$parent
+  len <- length(cache$len)
+  root <- cache$root
+  tips <- seq_len(cache$n.tip)
+  k <- ncol(li)
+  pij2 <- array(pij, c(len, k, k))
+
+  anc.states <- matrix(NA, k, len)  
+  anc.states[,root] <- root.p
+
+  for ( i in rev(cache$order)[-1] ) {
+    pp <- anc.states[,parent[i]]
+    tmp <- t((li[i,] * t(pij2[i,,])))
+    anc.states[,i] <- (c(pp) / sum(pp)) %*% (tmp/rowSums(tmp))
   }
 
-  x
+  anc.states[,-tips]
 }

@@ -56,8 +56,16 @@ find.mle.bisse <- function(func, x.init, method,
 make.cache.bisse <- function(tree, states, unresolved=NULL,
                              sampling.f=NULL, nt.extra=10, 
                              node.fixing=NULL) {
+  if ( !inherits(tree, "phylo") )
+    stop("'tree' must be a valid phylo tree")
   if ( is.null(names(states)) )
     stop("The states vector must contain names")
+  if ( inherits(tree, "clade.tree") ) {
+    if ( !is.null(unresolved) )
+      stop("'unresolved' cannot be specified where 'tree' is a clade.tree")
+    unresolved <- make.unresolved(tree$clades, states)
+  }
+
 
   ## Check 'sampling.f'
   if ( !is.null(sampling.f) && !is.null(unresolved) )
@@ -66,19 +74,14 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
     sampling.f <- c(1, 1)
   else if ( length(sampling.f) != 2 )
     stop("sampling.f must be of length 2 (or NULL)")
-  else if ( max(sampling.f) > 1 || min(sampling.f) < 0 )
-    stop("sampling.f must be on range [0,1]")
+  else if ( max(sampling.f) > 1 || min(sampling.f) <= 0 )
+    stop("sampling.f must be on range (0,1]")
   
   ## Check 'unresolved' (there is certainly room to streamline this in
   ## the future).
   if ( !is.null(unresolved) && nrow(unresolved) == 0 ) {
     unresolved <- NULL
     warning("Ignoring empty 'unresolved' argument")
-  }
-  if ( inherits(tree, "clade.tree") ) {
-    if ( !is.null(unresolved) )
-      stop("'unresolved' cannot be specified where 'tree' is a clade.tree")
-    unresolved <- make.unresolved(tree$clades, states)
   }
   if ( !is.null(unresolved) ) {
     required <- c("tip.label", "Nc", "n0", "n1")
@@ -148,7 +151,9 @@ initial.tip.bisse <- function(cache) {
 ll.bisse <- function(cache, pars, branches, prior=NULL,
                      condition.surv=TRUE, root=ROOT.OBS, root.p=NULL,
                      intermediates=FALSE, root.p0=NA, root.p1=NA) {
-  if ( any(pars < 0) || any(!is.finite(pars)) || length(pars) != 6 )
+  if ( length(pars) != 6 )
+    stop("Invalid parameter length (expected 6)")
+  if ( any(pars < 0) || any(!is.finite(pars)) )
     return(-Inf)
 
   if ( !is.na(root.p0) ) {
@@ -167,13 +172,9 @@ ll.bisse <- function(cache, pars, branches, prior=NULL,
 }
 
 ## 7: initial.conditions:
-initial.conditions.bisse <- function(init, pars, t, is.root=FALSE) {
-  e <- init[1,c(1,2)]
-  d <- init[1,c(3,4)] * init[2,c(3,4)]
-  if ( !is.root )
-    d <- d * pars[c(1,2)]
-  c(e, d)
-}
+initial.conditions.bisse <- function(init, pars, t, is.root=FALSE)
+  c(init[1,c(1,2)],
+    init[1,c(3,4)] * init[2,c(3,4)] * pars[c(1,2)])
 
 ## 8: branches
 make.branches.bisse <- function(safe=FALSE) {
