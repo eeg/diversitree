@@ -9,7 +9,7 @@ ttn <- read.ttn("example-clean.ttn", nodes=F)
 plot(ttn$tree, show.tip.label=F, no.margin=T)
 tiplabels(text=as.character(seq(ttn$tree$Nnode+1)), bg=mycol[ttn$states+1],
           adj=0)
-nodelabels()
+nodelabels(ttn$tree$node.label)
 
 params <- c(1.4, 0.4, 0.2, 0.1, 0.6, 0.35)
 names(params) <- c("lambda0", "lambda1", "mu0", "mu1", "q01", "q10")

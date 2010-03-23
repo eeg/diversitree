@@ -1,4 +1,5 @@
 # EEG: This is my old reconstruction code, using node.fixing.
+# TODO: If node.fixing is passed in, respect that (just fix on top of it and unfix afterwards?).  Also, record node labels if they exist.
 
 ### Reconstruct node states using the "global, marginal" method.
 ### This is not necessarily the most appropriate method for many questions 
@@ -20,7 +21,7 @@ reconstruct.bisse <- function(tree, states, pars, ...)
     nnodes <- tree$Nnode
     ntotal <- ntips + nnodes
 
-    # will hold the desired probabilities of each state
+    # will hold the probabilities of each state
     ans <- data.frame(num = seq(nnodes) + ntips, p0 = rep(NA, nnodes), 
                       p1 = rep(NA, nnodes))
 
