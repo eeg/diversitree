@@ -55,6 +55,8 @@ find.mle.gse2 <- function(func, x.init, method,
 # almost identical to make.cache.bisse(), but uses three states
 make.cache.gse2 <- function(tree, states, unresolved=NULL,
                              sampling.f=NULL, nt.extra=10) {
+  if ( !inherits(tree, "phylo") )
+    stop("'tree' must be a valid phylo tree")
   if ( is.null(names(states)) )
     stop("The states vector must contain names")
 
@@ -65,8 +67,8 @@ make.cache.gse2 <- function(tree, states, unresolved=NULL,
     sampling.f <- c(1, 1, 1)
   else if ( length(sampling.f) != 3 )
     stop("sampling.f must be of length 3 (or NULL)")
-  else if ( max(sampling.f) > 1 || min(sampling.f) < 0 )
-    stop("sampling.f must be on range [0,1]")
+  else if ( max(sampling.f) > 1 || min(sampling.f) <= 0 )
+    stop("sampling.f must be on range (0,1]")
 
   if ( !is.null(unresolved) ) {
       stop("Unresolved clades not yet available for GSE2")
@@ -117,9 +119,11 @@ initial.tip.gse2 <- function(cache) {
 
 ## 6: ll
 ll.gse2 <- function(cache, pars, branches, prior=NULL,
-                     condition.surv=TRUE, root=ROOT.OBS, root.p=NULL,
+                     condition.surv=FALSE, root=ROOT.OBS, root.p=NULL,
                      intermediates=FALSE) {
-  if ( any(pars < 0) || any(!is.finite(pars)) || length(pars) != 7 )
+ if ( length(pars) != 7 )
+    stop("Invalid parameter length (expected 7)")
+  if ( any(pars < 0) || any(!is.finite(pars)))
     return(-Inf)
 
   if ( !is.null(root.p) && root != ROOT.GIVEN )
@@ -130,49 +134,7 @@ ll.gse2 <- function(cache, pars, branches, prior=NULL,
            condition.surv, root, root.p,
            prior, intermediates)
 }
-
-# modified from diversitree-branches.R: xxsse.ll()
-gse2.ll <- function(pars, cache, initial.conditions,
-                     branches, branches.unresolved, 
-                     condition.surv, root.mode, root.p,
-                     prior, intermediates) {
-  ans <- all.branches(pars, cache, initial.conditions,
-                      branches, branches.unresolved)
-  loglik <- root.gse2(ans, pars, cache, condition.surv,
-                       root.mode, root.p)
-  cleanup(loglik, pars, prior, intermediates, cache, ans)
-}
-
-# modified from diversitree-branches.R: root.xxsse()
-root.gse2 <- function(vars, pars, cache, condition.surv, root.mode,
-                       root.p) {
-  logcomp <- sum(vars$lq)
-  vars <- vars$init[cache$root,]
-  k <- 3 # number of states
-  e.root <- vars[seq_len(k)]
-  d.root <- vars[(k+1):(2*k)]
-
-  if ( root.mode == ROOT.FLAT )
-    p <- rep(1/k, k)
-  else if ( root.mode == ROOT.OBS )
-    p <- d.root / sum(d.root)
-  else if ( root.mode == ROOT.EQUI )
-    p <- stationary.freq.gse2(pars)
-  else if ( root.mode == ROOT.GIVEN ) {
-    if ( length(root.p) != length(d.root) )
-      stop("Invalid length for root.p")
-    p <- root.p
-  } else if ( root.mode != ROOT.ALL )
-    stop("Invalid root mode")
-
-  if ( condition.surv )
-    d.root <- d.root / (1-e.root)^2
-  if ( root.mode == ROOT.ALL )
-    loglik <- log(d.root)# + logcomp
-  else
-    loglik <- log(sum(p * d.root)) + logcomp
-  loglik
-}
+# gse2.ll() was here
 
 ## 7: initial.conditions:
 initial.conditions.gse2 <- function(init, pars, t, is.root=FALSE) {
@@ -180,23 +142,12 @@ initial.conditions.gse2 <- function(init, pars, t, is.root=FALSE) {
   e <- init[1, c(1,2,3)]
 
   # D.1, D.2  (Eq. 6bc)
-  d12 <- init[1, c(5,6)] * init[2, c(5,6)]
+  d12 <- init[1, c(5,6)] * init[2, c(5,6)] * pars[c(1,2)]
 
-  if ( !is.root )
-  {
-    # pars[1:3] = sA, sB, sAB
-    d12 <- d12 * pars[c(1,2)]
-
-    # D.0 (Eq. 6a)
-    d0 <- 0.5 * sum(init[1, c(4,5)] * init[2, c(5,4)] * pars[1] + 
-                    init[1, c(4,6)] * init[2, c(6,4)] * pars[2] +
-                    init[1, c(5,6)] * init[2, c(6,5)] * pars[3])
-  } else
-  {
-    d0 <- 0.5 * sum(init[1, c(4,5)] * init[2, c(5,4)] + 
-                    init[1, c(4,6)] * init[2, c(6,4)] +
-                    init[1, c(5,6)] * init[2, c(6,5)])
-  }
+  # D.0 (Eq. 6a)
+  d0 <- 0.5 * sum(init[1, c(4,5)] * init[2, c(5,4)] * pars[1] + 
+                  init[1, c(4,6)] * init[2, c(6,4)] * pars[2] +
+                  init[1, c(5,6)] * init[2, c(6,5)] * pars[3])
   d <- c(d0, d12)
 
   c(e, d)
@@ -205,7 +156,6 @@ initial.conditions.gse2 <- function(init, pars, t, is.root=FALSE) {
 ## 8: branches
 make.branches.gse2 <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
-  eps <- 0
 
   gse2.ode <- make.ode("gse2_derivs", "diversitreeGSE", "gse2_initmod", 6, safe)
   branches <- function(y, len, pars, t0)
@@ -263,3 +213,61 @@ starting.point.gse2 <- function(tree, q.div=5, yule=FALSE) {
 # all.models.gse2 <- function(f, p, ...) { ... }
 
 # mle and anova stuff that used to be here is now covered generically in mle.R
+
+# modified from diversitree-branches.R: xxsse.ll()
+gse2.ll <- function(pars, cache, initial.conditions,
+                     branches, branches.unresolved, 
+                     condition.surv, root, root.p,
+                     prior, intermediates) {
+  ans <- all.branches(pars, cache, initial.conditions,
+                      branches, branches.unresolved)
+
+  vals <- ans$init[cache$root,]
+  root.p <- root.p.gse2(vals, pars, root, root.p)
+  loglik <- root.gse2(vals, pars, ans$lq, condition.surv, root.p)
+  cleanup(loglik, pars, prior, intermediates, cache, ans)
+}
+
+# modified from diversitree-branches.R: root.xxsse()
+root.gse2 <- function(vals, pars, lq, condition.surv, root.p) {
+  logcomp <- sum(lq)
+
+  k <- 3 # number of states
+  i <- seq_len(k)
+  lambda <- c(pars[1:2], sum(pars[1:3]))
+  e.root <- vals[i]
+  d.root <- vals[-i]
+
+  # root.mode stuff moved to root.p.gse2()
+  
+  if ( condition.surv )
+    d.root <- d.root / (lambda * (1-e.root)^2)
+
+  if ( is.null(root.p) ) # ROOT.BOTH
+    loglik <- log(d.root) + logcomp
+  else
+    loglik <- log(sum(root.p * d.root)) + logcomp
+  loglik
+}
+
+# unlike root.p.xxsse(), returned p is always a vector of length k
+root.p.gse2 <- function(vals, pars, root, root.p=NULL) {
+  k <- 3 # number of states
+  d.root <- vals[-seq_len(k)]
+
+  if ( root == ROOT.FLAT )
+    p <- rep(1/k, k)
+  else if ( root == ROOT.EQUI )
+    p <- stationary.freq.gse2(pars)
+  else if ( root == ROOT.OBS )
+    p <- d.root / sum(d.root)
+  else if ( root == ROOT.GIVEN ) {
+    if ( length(root.p) != length(d.root) )
+      stop("Invalid length for root.p")
+    p <- root.p
+  } else if ( root == ROOT.ALL )
+    p <- NULL
+  else
+    stop("Invalid root mode")
+  p
+}
