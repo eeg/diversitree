@@ -234,7 +234,7 @@ root.gse2 <- function(vals, pars, lq, condition.surv, root.p) {
 
   k <- 3 # number of states
   i <- seq_len(k)
-  lambda <- c(pars[1:2], sum(pars[1:3]))
+  lambda <- c(sum(pars[1:3]), pars[1:2])
   e.root <- vals[i]
   d.root <- vals[-i]
 
