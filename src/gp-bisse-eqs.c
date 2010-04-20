@@ -1,11 +1,14 @@
 /*
- * IN PROGRESS
+ * STATUS: I think this will work for gradual and punctuated change 
+ * with any number of states.
  *
  * For debugging:
  *	 $ gcc -c -I/usr/share/R/include -fPIC gp-bisse-eqs.c
  *	 $ gcc -shared -o gp-bisse-eqs.so gp-bisse-eqs.o
- *	 creates gp-bisse-eqs.so
- *	 in R, dyn.load('gp-bisse-eqs.so')
+ *	 or instead:
+ *	 $ R CMD SHLIB gp-bisse-eqs.c
+ *	 That creates gp-bisse-eqs.so.
+ *	 In R, dyn.load("gp-bisse-eqs.so").
  */
 
 #include <R.h>
@@ -15,14 +18,7 @@
 static double *lambda;
 static double *mu;
 static double *q;
-
-/* will eventually need to index these dynamically */
-#define lambda0 lambda[0]
-#define lambda1 lambda[7]
-#define mu0 mu[0]
-#define mu1 mu[1]
-#define q01 q[2]
-#define q10 q[1]
+static int *nstates;
 
 /* get the list element named str, or return NULL; from R-exts.c */
 SEXP getListElement(SEXP list, const char *str)
@@ -45,41 +41,119 @@ void initmod_gp(void (* odeparms)(int *, double *))
 {
 	DL_FUNC get_deSolve_gparms;
 	SEXP gparms;
-	const char *varnames[3] = {"lambda", "mu", "q"};
+	SEXP temp;
+	const char *varnames[4] = {"nstates", "lambda", "mu", "q"};
 
 	/* acquire R's list of parameters */
 	get_deSolve_gparms = R_GetCCallable("deSolve","get_deSolve_gparms");
 	gparms = get_deSolve_gparms();
 
-	/* should have 3 elements: lambda, mu, q */
-	if (LENGTH(gparms) != 3)
+	/* should have 4 elements: nstates, lambda, mu, q */
+	if (LENGTH(gparms) != 4)
 	{
-		PROBLEM "Confusion over the length of parms" ERROR;
+		PROBLEM "Confusion over the length of parms." ERROR;
 	}
 	else
 	{
-		/* a 3D array; parent, daught1, daught2 */
-		lambda = REAL(getListElement(gparms, varnames[0]));
-		//printf("%f, %f, %f, %f, %f, %f, %f, %f\n", lambda[0], lambda[1], lambda[2], lambda[3], lambda[4], lambda[5], lambda[6], lambda[7]);
+		/* the number of states; an integer */
+		temp = getListElement(gparms, varnames[0]);
+		if (temp == R_NilValue)
+			PROBLEM "nstates not found" ERROR;
+		nstates = INTEGER(temp);
+		/* (ERROR terminates, so not bothering with else's and {}'s */
 
-		/* a vector */
-		mu = REAL(getListElement(gparms, varnames[1]));
+		/* speciation rates; indexed by parent, daught1, daught2, 
+ 		 * so a nstates x nstates x nstates array */
+		temp = getListElement(gparms, varnames[1]);
+		if (temp == R_NilValue)
+			PROBLEM "lambda not found" ERROR;
+		lambda = REAL(temp);
 
-		/* a 2D array; read col by col */
-		q = REAL(getListElement(gparms, varnames[2]));
+		/* extinction rates; indexed by lineage state, 
+ 		 * so a length-nstates vector */
+		temp = getListElement(gparms, varnames[2]);
+		if (temp == R_NilValue)
+			PROBLEM "mu not found" ERROR;
+		mu = REAL(temp);
+
+		/* transition rates; indexed by oldstate, newstate, 
+ 		 * so a nstates x nstates array */
+		temp = getListElement(gparms, varnames[3]);
+		if (temp == R_NilValue)
+			PROBLEM "q not found" ERROR;
+		q = REAL(temp);
 	}
 } 
 
 void derivs_gp(int *neq, double *t, double *y, double *ydot, 
                double *yout, int *ip)
 {
-	double E0 = y[0];
-	double E1 = y[1];
-	double D0 = y[2];
-	double D1 = y[3];
+	double Di, Dj, Dk, Ei, Ej, Ek, q_ij, lam_ijk;
+	int i, j, k;
+	const int ns = *(nstates);  /* just to keep notation shorter */
 
-	ydot[0] = -(mu0 + q01 + lambda0) * E0 + lambda0 * E0 * E0 + mu0 + q01 * E1;
-	ydot[1] = -(mu1 + q10 + lambda1) * E1 + lambda1 * E1 * E1 + mu1 + q10 * E0;
-	ydot[2] = -(mu0 + q01 + lambda0) * D0 + 2 * lambda0 * E0 * D0 + q01 * D1;
-	ydot[3] = -(mu1 + q10 + lambda1) * D1 + 2 * lambda1 * E1 * D1 + q10 * D0;
+	/* 
+ 	 * the E's are elements 0 ... ns-1  of y
+ 	 * the D's are elements ns ... 2ns-1 of y
+	 *
+	 * the [i,j] element of q is *(q + i + j*ns)
+	 *    (transition from i to j)
+	 * the [i, j, k] element of lambda is *(lambda + i + j*ns + k*ns*ns)
+	 *   (parent = i, daughters = j and k)
+	 */
+
+	for (i=0; i<ns; i++)
+	{
+		Di = y[ns+i];
+		Ei = y[i];
+
+		/*** extinction ***/
+
+		/* start dDi / dt */
+		ydot[ns+i] = -mu[i] * Di;
+
+		/* start dEi / dt */
+		ydot[i] = mu[i] - mu[i]  * Ei;
+
+		/*** transition ***/
+
+		for (j=0; j<ns; j++)
+		{
+			if (j != i)
+			{
+				q_ij = *(q + i+j*ns);
+				Dj = y[ns+j];
+				Ej = y[j];
+
+				/* continue dDi / dt */
+				ydot[ns+i] += q_ij * Dj - q_ij * Di;
+
+				/* continue dEi / dt */
+				ydot[i] += q_ij * Ej - q_ij * Ei;
+			}
+		}
+
+		/*** speciation ***/
+
+		for (j=0; j<ns; j++)
+		{
+			Dj = y[ns+j];
+			Ej = y[j];
+
+			/* order of daughters doesn't matter, so assume that j <= k; 
+			 * elements with j > k should be zero/ignored */
+			for (k=0; k<=j; k++)
+			{
+				Dk = y[ns+k];
+				Ek = y[k];
+				lam_ijk = *(lambda + i + j*ns + k*ns*ns);
+
+				/* continue dDi / dt */
+				ydot[ns+i] += -lam_ijk * Di + lam_ijk * (Dj*Ek + Dk*Ej);
+
+				/* continue dEi / dt */
+				ydot[i] += -lam_ijk * Ei + lam_ijk * Ej * Ek;
+			}
+		}
+	}
 }
