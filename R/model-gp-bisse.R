@@ -1,5 +1,3 @@
-# FIXME: need to do all the GP stuff
-
 ## Models should provide:
 ##   1. make
 ##   2. print
@@ -13,48 +11,59 @@
 ##   9. branches.unresolved
 
 ## 1: make
-make.bisse <- function(tree, states, unresolved=NULL, sampling.f=NULL,
+make.gpbisse <- function(tree, states, unresolved=NULL, sampling.f=NULL,
                        nt.extra=10, safe=FALSE) {
-  cache <- make.cache.bisse(tree, states, unresolved=unresolved,
+  cache <- make.cache.gpbisse(tree, states, unresolved=unresolved,
                             sampling.f=sampling.f, nt.extra=10)
-  branches <- make.branches.bisse(safe)
-  ll <- function(pars, ...) ll.bisse(cache, pars, branches, ...)
-  class(ll) <- c("bisse", "function")
+  branches <- make.branches.gpbisse(safe)
+  ll <- function(pars, ...) ll.gpbisse(cache, pars, branches, ...)
+  class(ll) <- c("gpbisse", "function")
   ll
 }
 
 ## 2: print
-print.bisse <- function(x, ...) {
-  cat("BiSSE likelihood function:\n")
+print.gpbisse <- function(x, ...) {
+  cat("GP-BiSSE likelihood function:\n")
   print(unclass(x))
 }
 
 ## 3: argnames / argnames<-
-argnames.bisse <- function(x, ...) {
+argnames.gpbisse <- function(x, ...) {
   ret <- attr(x, "argnames")
   if ( is.null(ret) )
-    c("lambda0", "lambda1", "mu0", "mu1", "q01", "q10")
+  {
+    k <- 2
+    lambda.names <- sprintf("lam%d%d%d", rep(1:k, each=k*(k+1)/2), 
+            rep(rep(1:k, times=seq(k,1,-1)), k), 
+            unlist(lapply(1:k, function(i) i:k)))
+    mu.names <- sprintf("mu%d", seq_len(k))
+    q.names <- sprintf("q%d%d", rep(1:k, each=k-1),
+            unlist(lapply(1:k, function(i) (1:k)[-i])))
+    c(lambda.names, mu.names, q.names)
+  }
   else
     ret
 }
-`argnames<-.bisse` <- function(x, value) {
-  if ( length(value) != 6 )
+`argnames<-.gpbisse` <- function(x, value) {
+  k <- 2
+  if ( length(value) != k*k*(k+1)/2 + k + k*(k-1))
     stop("Invalid names length")
   attr(x, "argnames") <- value
   x  
 }
 
 ## 4: find.mle
-find.mle.bisse <- function(func, x.init, method,
+find.mle.gpbisse <- function(func, x.init, method,
                            fail.value=NA, ...) {
   if ( missing(method) )
     method <- "optim"
-  NextMethod("find.mle", method=method, class.append="fit.mle.bisse")
+  NextMethod("find.mle", method=method, class.append="fit.mle.gpbisse")
 }
 
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
-make.cache.bisse <- function(tree, states, unresolved=NULL,
+# same as make.cache.bisse() but disallows unresolved clades
+make.cache.gpbisse <- function(tree, states, unresolved=NULL,
                              sampling.f=NULL, nt.extra=10) {
   if ( !inherits(tree, "phylo") )
     stop("'tree' must be a valid phylo tree")
@@ -66,7 +75,6 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
     unresolved <- make.unresolved(tree$clades, states)
   }
 
-
   ## Check 'sampling.f'
   if ( !is.null(sampling.f) && !is.null(unresolved) )
     stop("Cannot specify both sampling.f and unresolved")
@@ -76,27 +84,9 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
     stop("sampling.f must be of length 2 (or NULL)")
   else if ( max(sampling.f) > 1 || min(sampling.f) <= 0 )
     stop("sampling.f must be on range (0,1]")
-  
-  ## Check 'unresolved' (there is certainly room to streamline this in
-  ## the future).
-  if ( !is.null(unresolved) && nrow(unresolved) == 0 ) {
-    unresolved <- NULL
-    warning("Ignoring empty 'unresolved' argument")
-  }
-  if ( !is.null(unresolved) ) {
-    required <- c("tip.label", "Nc", "n0", "n1")
-    if ( !all(required %in% names(unresolved)) )
-      stop("Required columns missing from unresolved clades")
-    if ( !all(unresolved$tip.label %in% tree$tip.label) )
-      stop("Unknown tip species in 'unresolved'")
-    unresolved$k   <- unresolved$n1
-    unresolved$nsc <- unresolved$n0 + unresolved$n1
-    unresolved$i   <- match(unresolved$tip.label, tree$tip.label)
-    unresolved <- as.list(unresolved)
-    unresolved$nt.extra <- nt.extra
 
-    if ( max(unresolved$Nc) > 200 )
-      stop("The largest unresolved clade supported has 200 species")
+  if ( !is.null(unresolved) ) {
+      stop("Unresolved clades not yet available for GP-SDD")
   }
   
   ## Check that we know about all required species (this requires
@@ -127,25 +117,17 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
 ## work out which of the three types things are (i).  Note that y[i,]
 ## gives the full initial conditions.  The element 'types' contains
 ## the different possible conditions.
-initial.tip.bisse <- function(cache) {
-  f <- cache$sampling.f
-  y <- rbind(c(1-f, f[1], 0),
-             c(1-f, 0, f[2]),
-             c(1-f, f))
-  i <- cache$tip.state + 1
-  if ( !is.null(cache$unresolved) )
-    i <- i[-cache$unresolved$i]
-  i[is.na(i)] <- 3
-  list(y=y, i=i, types=sort(unique(i)))
-}
+
+# initial.tip.bisse() can be used for gpbisse
 
 ## 6: ll
-ll.bisse <- function(cache, pars, branches, prior=NULL,
+ll.gpbisse <- function(cache, pars, branches, prior=NULL,
                      condition.surv=TRUE, root=ROOT.OBS, root.p=NULL,
                      intermediates=FALSE,
                      root.p0=NA, root.p1=NA) {
-  if ( length(pars) != 6 )
-    stop("Invalid parameter length (expected 6)")
+  # see argnames above for generalizing to k states
+  if ( length(pars) != 10 )
+    stop("Invalid parameter length (expected 10)")
   if ( any(pars < 0) || any(!is.finite(pars)) )
     return(-Inf)
 
@@ -159,145 +141,110 @@ ll.bisse <- function(cache, pars, branches, prior=NULL,
   if ( !is.null(root.p) &&  root != ROOT.GIVEN )
     warning("Ignoring specified root state")
 
-  xxsse.ll(pars, cache, initial.conditions.bisse,
-           branches, branches.unresolved.bisse,
+  gpbisse.ll(pars, cache, initial.conditions.gpbisse,
+           branches, branches.unresolved.gpbisse,
            condition.surv, root, root.p,
            prior, intermediates)
 }
 
 ## 7: initial.conditions:
-initial.conditions.bisse <- function(init, pars, t, is.root=FALSE)
-  c(init[1,c(1,2)],
-    init[1,c(3,4)] * init[2,c(3,4)] * pars[c(1,2)])
+initial.conditions.gpbisse <- function(init, pars, t, is.root=FALSE)
+{
+  # E.1, E.2
+  e <- init[1, c(1,2)]
+
+  # D.1, D.2
+  # pars starts with: "lam111" "lam112" "lam122" "lam211" "lam212" "lam222"
+  # todo: can probably be much cleaner for k states
+  d1 <- 0.5 * sum(init[1, c(3,3)] * init[2, c(3,3)] * pars[1] + 
+                  init[1, c(3,4)] * init[2, c(4,3)] * pars[2] +
+                  init[1, c(4,4)] * init[2, c(4,4)] * pars[3])
+  d2 <- 0.5 * sum(init[1, c(3,3)] * init[2, c(3,3)] * pars[4] + 
+                  init[1, c(3,4)] * init[2, c(4,3)] * pars[5] +
+                  init[1, c(4,4)] * init[2, c(4,4)] * pars[6])
+  d <- c(d1, d2)
+  c(e, d)
+}
 
 ## 8: branches
-make.branches.bisse <- function(safe=FALSE) {
+make.branches.gpbisse <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
-  bisse.ode <- make.ode("derivs", "diversitree", "initmod", 4, safe)
+  gpbisse.ode <- make.ode("derivs_gp", "diversitree", "initmod_gp", 4, safe)
   branches <- function(y, len, pars, t0)
-    t(bisse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
+    t(gpbisse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   
   make.branches(branches, 3:4)
 }
 
 ## 9: branches.unresolved
-branches.unresolved.bisse <- function(pars, len, unresolved) {
-  Nc <- unresolved$Nc
-  k <- unresolved$k
-  nsc <- unresolved$nsc
-  t <- len
-  nt <- max(Nc) + unresolved$nt.extra
-  
-  lambda0 <- pars[1]
-  lambda1 <- pars[2]
-  mu0 <- pars[3]
-  mu1 <- pars[4]
-  q01 <- pars[5]
-  q10 <- pars[6]
-  ret <- bucexpl(nt, mu0, mu1, lambda0, lambda1, q01, q10, t,
-          Nc, nsc, k)[,c(3,4,1,2),drop=FALSE]
-
-  q <- rowSums(ret[,3:4,drop=FALSE])
-  ret[,3:4] <- ret[,3:4] / q
-  cbind(log(q), ret, deparse.level=0)
-}
+branches.unresolved.gpbisse <- function(...)
+  stop("Cannot yet use unresolved clades with GP-SDD")
 
 ## Additional functions
-bisse.stationary.freq <- function(pars) {
-  .Deprecated("stationary.freq.bisse")
-  stationary.freq.bisse(pars)
-}
-stationary.freq.bisse <- function(pars) {
-  lambda0 <- pars[1]
-  lambda1 <- pars[2]
-  mu0 <- pars[3]
-  mu1 <- pars[4]
-  q01 <- pars[5]
-  q10 <- pars[6]
 
-  g <- (lambda0 - mu0) - (lambda1 - mu1)
-  eps <- (lambda0 + mu0 + lambda1 + mu1)*1e-14
-  if ( abs(g) < eps ) {
-    if ( q01 + q10 == 0 )
-      0.5
-    else
-      q10/(q01 + q10)
-  } else {
-    roots <- quadratic.roots(g, q10+q01-g, -q10)
-    roots <- roots[roots >= 0 & roots <= 1]
-    if ( length(roots) > 1 )
-      NA
-    else
-      roots
-  }
+# TODO: will need to collapse lambda_ijk into transition matrix
+stationary.freq.gpbisse <- function(pars) {
+  stop("Cannot yet use stationary frequency with GP-SDD")
 }
 
-starting.point.bisse <- function(tree, q.div=5, yule=FALSE) {
-  ## TODO: Use qs estimated from Mk2?  Can be slow is the only reason
-  ## I have not set this up by default.
-  ## find.mle(constrain(make.mk2(phy, phy$tip.state), q10 ~ q01), .1)$par
-  pars.bd <- suppressWarnings(starting.point.bd(tree, yule))
-  if  ( pars.bd[1] > pars.bd[2] )
-    p <- rep(c(pars.bd, (pars.bd[1] - pars.bd[2]) / q.div), each=2)
+# TODO: could use bisse's, and pad with zeroes
+starting.point.gpbisse <- function(tree, q.div=5, yule=FALSE) {
+  stop("Cannot yet use starting.point with GP-SDD")
+}
+
+# modified from diversitree-branches.R: xxsse.ll()
+gpbisse.ll <- function(pars, cache, initial.conditions,
+                     branches, branches.unresolved, 
+                     condition.surv, root, root.p,
+                     prior, intermediates) {
+  ans <- all.branches(pars, cache, initial.conditions,
+                      branches, branches.unresolved)
+
+  vals <- ans$init[cache$root,]
+  root.p <- root.p.gpbisse(vals, pars, root, root.p)
+  loglik <- root.gpbisse(vals, pars, ans$lq, condition.surv, root.p)
+  cleanup(loglik, pars, prior, intermediates, cache, ans)
+}
+
+# modified from diversitree-branches.R: root.xxsse()
+root.gpbisse <- function(vals, pars, lq, condition.surv, root.p) {
+  logcomp <- sum(lq)
+
+  i <- seq_len(2)  # 2 states
+  e.root <- vals[i]
+  d.root <- vals[-i]
+
+  # sum the lambdas for each parent state; any type of speciation 
+  #   could happen at the root
+  lambda <- c(sum(pars[1:3]), pars[4:6])
+  if ( condition.surv )
+    d.root <- d.root / (lambda * (1-e.root)^2)
+
+  if ( is.null(root.p) ) # ROOT.BOTH
+    loglik <- log(d.root) + logcomp
   else
-    p <- rep(c(pars.bd, pars.bd[1] / q.div), each=2)
-  names(p) <- argnames.bisse(NULL)
+    loglik <- log(sum(root.p * d.root)) + logcomp
+  loglik
+}
+
+# only re-defined for stationary.freq.gpbisse(), which doesn't even exist yet
+root.p.gpbisse <- function(vals, pars, root, root.p=NULL) {
+  k <- 2 # number of states
+  d.root <- vals[-seq_len(k)]
+
+  if ( root == ROOT.FLAT )
+    p <- rep(1/k, k)
+  else if ( root == ROOT.EQUI )
+    p <- stationary.freq.gpbisse(pars)
+  else if ( root == ROOT.OBS )
+    p <- d.root / sum(d.root)
+  else if ( root == ROOT.GIVEN ) {
+    if ( length(root.p) != length(d.root) )
+      stop("Invalid length for root.p")
+    p <- root.p
+  } else if ( root == ROOT.ALL )
+    p <- NULL
+  else
+    stop("Invalid root mode")
   p
-}
-starting.point <- bisse.starting.point <- function(tree, q.div=5) {
-  .Deprecated("starting.point.bisse")
-  starting.point.bisse(tree, q.div)
-}
-
-## This is here for reference, but not exported yet.  It should be
-## tweaked in several ways
-##   1. Starting parameter guessing should be done internally, at
-##      least as an option.
-##   2. Better listing of arguments
-##   3. Automatic parsing of results into some sort of table; this
-##      proabably requires classing this.
-all.models.bisse <- function(f, p, ...) {
-  f3 <- constrain(f, lambda1 ~ lambda0, mu1 ~ mu0, q01 ~ q10)
-  f4.lm <- constrain(f, lambda1 ~ lambda0, mu1 ~ mu0)
-  f4.lq <- constrain(f, lambda1 ~ lambda0, q01 ~ q10)
-  f4.mq <- constrain(f, mu1 ~ mu0, q01 ~ q10)
-  f5.l <- constrain(f, lambda1 ~ lambda0)
-  f5.m <- constrain(f, mu1 ~ mu0)
-  f5.q <- constrain(f, q01 ~ q10)
-
-  ## Fit six and three parameter models
-  if ( length(p) != 3 )
-    stop("Starting point must be of length 3 (lambda, mu, q)")
-  ans3 <- find.mle(f3, p, ...)
-
-  ## Using the values from the 3p model, fit the 4p and 5p models:
-  l <- ans3$par[1]
-  m <- ans3$par[2]
-  q <- ans3$par[3]
-
-  ## Start the searches from the best model of the previous type.
-  ans4.lm <- find.mle(f4.lm, c(l, m, q, q), ...)
-  ans4.lq <- find.mle(f4.lq, c(l, m, m, q), ...)
-  ans4.mq <- find.mle(f4.mq, c(l, l, m, q), ...)
-
-  p.l <- if ( ans4.lm$lnLik > ans4.lq$lnLik )
-    ans4.lm$par[c(1:2,2:4)] else ans4.lq$par[c(1:4,4)]
-  p.m <- if ( ans4.lm$lnLik > ans4.mq$lnLik )
-    ans4.lm$par[c(1,1:4)] else ans4.mq$par[c(1:4,4)]
-  p.q <- if ( ans4.lq$lnLik > ans4.mq$lnLik )
-    ans4.lq$par[c(1,1:4)] else ans4.mq$par[c(1:3,3:4)]
-  ans5.l  <- find.mle(f5.l, p.l, ...)
-  ans5.m  <- find.mle(f5.m, p.m, ...)
-  ans5.q  <- find.mle(f5.q, p.q, ...)
-
-  tmp <- list(ans5.l, ans5.m, ans5.q)
-  i <- which.max(sapply(tmp, "[[", "lnLik"))
-  p6 <- tmp[[i]]$par
-  j <- list(c(1, 1:5), c(1:2, 2:5), c(1:5, 5))
-  ans6 <- find.mle(f, p6[j[[i]]], ...)
-
-  list(ans6=ans6,
-       ans5.l =ans5.l,  ans5.m =ans5.m,  ans5.q =ans5.q,
-       ans4.lm=ans4.lm, ans4.lq=ans4.lq, ans4.mq=ans4.mq,
-       ans3=ans3)
 }
