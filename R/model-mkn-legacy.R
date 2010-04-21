@@ -205,7 +205,7 @@ make.branches.mkn <- function(k) {
   
   if ( k == 2 )
     warning("Two states is faster with Mk2")
-  mkn.ode <- make.ode("derivs_mkn", "diversitree", "initmod_mkn", k, FALSE)
+  mkn.ode <- make.ode("derivs_mkn", "diversitreeGP", "initmod_mkn", k, FALSE)
 
   branches.mkn <- function(y, len, pars, t0)
     t(mkn.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])

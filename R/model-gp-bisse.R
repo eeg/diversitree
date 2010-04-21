@@ -169,7 +169,7 @@ initial.conditions.gpbisse <- function(init, pars, t, is.root=FALSE)
 ## 8: branches
 make.branches.gpbisse <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
-  gpbisse.ode <- make.ode("derivs_gp", "diversitree", "initmod_gp", 4, safe)
+  gpbisse.ode <- make.ode("derivs_gp", "diversitreeGP", "initmod_gp", 4, safe)
   branches <- function(y, len, pars, t0)
     t(gpbisse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   
