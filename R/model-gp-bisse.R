@@ -10,6 +10,13 @@
 ##   8. branches
 ##   9. branches.unresolved
 
+# The parameter structure used here is no longer a vector, but a 
+# list with these elements:
+#     lambda = 2x2x2 array of speciation rates
+#     mu = length 2 vector of extinction rates
+#     q = 2x2 array of transition rates
+#     nstates = as.integer(2)
+
 ## 1: make
 make.gpbisse <- function(tree, states, unresolved=NULL, sampling.f=NULL,
                        nt.extra=10, safe=FALSE) {
@@ -28,6 +35,7 @@ print.gpbisse <- function(x, ...) {
 }
 
 ## 3: argnames / argnames<-
+# only for when the parameter structure must be flattened
 argnames.gpbisse <- function(x, ...) {
   ret <- attr(x, "argnames")
   if ( is.null(ret) )
@@ -125,11 +133,19 @@ ll.gpbisse <- function(cache, pars, branches, prior=NULL,
                      condition.surv=TRUE, root=ROOT.OBS, root.p=NULL,
                      intermediates=FALSE,
                      root.p0=NA, root.p1=NA) {
-  # see argnames above for generalizing to k states
-  if ( length(pars) != 10 )
-    stop("Invalid parameter length (expected 10)")
-  if ( any(pars < 0) || any(!is.finite(pars)) )
-    return(-Inf)
+    if (class(pars) != "list")
+        # todo: lots more error checking somewhere
+        stop("Invalid parameter structure (expecting a list)")
+    if (any(unlist(lapply(pars, function(x) any(x < 0)))) || 
+        any(unlist(lapply(pars, function(x) !is.finite(x)))))
+        return(-Inf)
+#--------------------------------------------------
+#   # see argnames above for generalizing to k states
+#   if ( length(pars) != 10 )
+#     stop("Invalid parameter length (expected 10)")
+#   if ( any(pars < 0) || any(!is.finite(pars)) )
+#     return(-Inf)
+#-------------------------------------------------- 
 
   if ( !is.na(root.p0) ) {
     warning("root.p0 is deprecated: please use root.p instead")
@@ -150,19 +166,38 @@ ll.gpbisse <- function(cache, pars, branches, prior=NULL,
 ## 7: initial.conditions:
 initial.conditions.gpbisse <- function(init, pars, t, is.root=FALSE)
 {
+  n <- pars$nstates
+  # note: init[1,] = clade N, init[2,] = clade M; init[,1:2]] = E, init[,3:4] = D
+
   # E.1, E.2
   e <- init[1, c(1,2)]
 
   # D.1, D.2
-  # pars starts with: "lam111" "lam112" "lam122" "lam211" "lam212" "lam222"
-  # todo: can probably be much cleaner for k states
-  d1 <- 0.5 * sum(init[1, c(3,3)] * init[2, c(3,3)] * pars[1] + 
-                  init[1, c(3,4)] * init[2, c(4,3)] * pars[2] +
-                  init[1, c(4,4)] * init[2, c(4,4)] * pars[3])
-  d2 <- 0.5 * sum(init[1, c(3,3)] * init[2, c(3,3)] * pars[4] + 
-                  init[1, c(3,4)] * init[2, c(4,3)] * pars[5] +
-                  init[1, c(4,4)] * init[2, c(4,4)] * pars[6])
-  d <- c(d1, d2)
+  d <- rep(0, n)
+  for (i in seq(n))
+  {
+    lambda <- pars$lambda[i,,]
+    for (j in seq(n))
+    {
+      for (k in seq(j))
+      {
+        d[i] <- d[i] + 0.5 * lambda[j,k] * 
+                       sum(init[1, c(n+j,n+k)] * init[2, c(n+k,n+j)])
+      }
+    }
+  }
+  # todo: be more R-like, without loops
+#--------------------------------------------------
+#   # pars starts with: "lam111" "lam112" "lam122" "lam211" "lam212" "lam222"
+#   # todo: can probably be much cleaner for k states
+#   d1 <- 0.5 * sum(init[1, c(3,3)] * init[2, c(3,3)] * pars[1] + 
+#                   init[1, c(3,4)] * init[2, c(4,3)] * pars[2] +
+#                   init[1, c(4,4)] * init[2, c(4,4)] * pars[3])
+#   d2 <- 0.5 * sum(init[1, c(3,3)] * init[2, c(3,3)] * pars[4] + 
+#                   init[1, c(3,4)] * init[2, c(4,3)] * pars[5] +
+#                   init[1, c(4,4)] * init[2, c(4,4)] * pars[6])
+#   d <- c(d1, d2)
+#-------------------------------------------------- 
   c(e, d)
 }
 
@@ -210,13 +245,13 @@ gpbisse.ll <- function(pars, cache, initial.conditions,
 root.gpbisse <- function(vals, pars, lq, condition.surv, root.p) {
   logcomp <- sum(lq)
 
-  i <- seq_len(2)  # 2 states
+  i <- seq_len(pars$nstates)
   e.root <- vals[i]
   d.root <- vals[-i]
 
   # sum the lambdas for each parent state; any type of speciation 
   #   could happen at the root
-  lambda <- c(sum(pars[1:3]), pars[4:6])
+  lambda <- apply(pars$lambda, 1, sum)
   if ( condition.surv )
     d.root <- d.root / (lambda * (1-e.root)^2)
 
@@ -229,7 +264,7 @@ root.gpbisse <- function(vals, pars, lq, condition.surv, root.p) {
 
 # only re-defined for stationary.freq.gpbisse(), which doesn't even exist yet
 root.p.gpbisse <- function(vals, pars, root, root.p=NULL) {
-  k <- 2 # number of states
+  k <- pars$nstates
   d.root <- vals[-seq_len(k)]
 
   if ( root == ROOT.FLAT )

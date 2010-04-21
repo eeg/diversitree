@@ -142,7 +142,7 @@ void derivs_gp(int *neq, double *t, double *y, double *ydot,
 
 			/* order of daughters doesn't matter, so assume that j <= k; 
 			 * elements with j > k should be zero/ignored */
-			for (k=0; k<=j; k++)
+			for (k=j; k<ns; k++)
 			{
 				Dk = y[ns+k];
 				Ek = y[k];
