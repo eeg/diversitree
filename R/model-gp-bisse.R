@@ -36,11 +36,16 @@ print.gpbisse <- function(x, ...) {
 
 ## 3: argnames / argnames<-
 # only for when the parameter structure must be flattened
-argnames.gpbisse <- function(x, ...) {
+# may want to change for double-digit states
+# TODO: pass k in here somehow
+argnames.gpbisse <- function(x, k, ...) {
   ret <- attr(x, "argnames")
-  if ( is.null(ret) )
-  {
-    k <- 2
+  if ( is.null(ret) ) {
+    if ( missing(k) )
+      k <- attr(x, "k")
+    else
+      if ( !is.null(x) )
+        stop("k can only be be given if x is null")
     lambda.names <- sprintf("lam%d%d%d", rep(1:k, each=k*(k+1)/2), 
             rep(rep(1:k, times=seq(k,1,-1)), k), 
             unlist(lapply(1:k, function(i) i:k)))
@@ -48,16 +53,57 @@ argnames.gpbisse <- function(x, ...) {
     q.names <- sprintf("q%d%d", rep(1:k, each=k-1),
             unlist(lapply(1:k, function(i) (1:k)[-i])))
     c(lambda.names, mu.names, q.names)
-  }
-  else
+  } else {
     ret
+  }
 }
 `argnames<-.gpbisse` <- function(x, value) {
-  k <- 2
+  k <- environment(x)$cache$k
   if ( length(value) != k*k*(k+1)/2 + k + k*(k-1))
     stop("Invalid names length")
   attr(x, "argnames") <- value
   x  
+}
+
+## convert between list of parameter arrays and single vector
+
+# recycle logic from argnames
+# tried omitting elements from unlist(parlist), but that's no cleaner
+flatten.pars.gpbisse <- function(parlist)
+{
+  k <- parlist$nstates
+
+  i.lam <- cbind(rep(1:k, each=k*(k+1)/2), rep(rep(1:k, times=seq(k,1,-1)), k),
+                 unlist(lapply(1:k, function(i) i:k)))
+
+  i.q <- cbind(rep(1:k, each=k-1), unlist(lapply(1:k, function(i) (1:k)[-i])))
+
+  parvec <- c(parlist$lambda[i.lam], parlist$mu, parlist$q[i.q])
+  names(parvec) <- diversitreeGP:::argnames.gpbisse(NULL, k)
+  return(parvec)
+}
+
+# reverse the logic in flatten.pars.gpbisse
+# unused elements in lambda and q are assigned 0 (would be nice if 
+#   they could be NA, but the C code needs help for that)
+listify.pars.gpbisse <- function(parvec, k)
+{
+  if ( length(parvec) != k*k*(k+1)/2 + k + k*(k-1))
+    stop("Invalid length of parameter vector.")
+
+  Lam <- array(0, dim=rep(k, 3))
+  idx <- cbind(rep(1:k, each=k*(k+1)/2), rep(rep(1:k, times=seq(k,1,-1)), k),
+               unlist(lapply(1:k, function(i) i:k)))
+  j <- length(idx[,1])
+  Lam[idx] <- parvec[seq(j)]
+
+  Mu <- parvec[seq(j+1, j+k)]
+
+  Q <- array(0, dim=rep(k, 2))
+  idx <- cbind(rep(1:k, each=k-1), unlist(lapply(1:k, function(i) (1:k)[-i])))
+  Q[idx] <- parvec[seq(j+k+1, length(parvec))]
+
+  list(lambda=Lam, mu=Mu, q=Q, nstates=as.integer(k))
 }
 
 ## 4: find.mle
@@ -174,30 +220,15 @@ initial.conditions.gpbisse <- function(init, pars, t, is.root=FALSE)
 
   # D.1, D.2
   d <- rep(0, n)
-  for (i in seq(n))
-  {
+  for (i in seq(n)) {
     lambda <- pars$lambda[i,,]
     for (j in seq(n))
-    {
       for (k in seq(j))
-      {
         d[i] <- d[i] + 0.5 * lambda[j,k] * 
                        sum(init[1, c(n+j,n+k)] * init[2, c(n+k,n+j)])
-      }
-    }
   }
   # todo: be more R-like, without loops
-#--------------------------------------------------
-#   # pars starts with: "lam111" "lam112" "lam122" "lam211" "lam212" "lam222"
-#   # todo: can probably be much cleaner for k states
-#   d1 <- 0.5 * sum(init[1, c(3,3)] * init[2, c(3,3)] * pars[1] + 
-#                   init[1, c(3,4)] * init[2, c(4,3)] * pars[2] +
-#                   init[1, c(4,4)] * init[2, c(4,4)] * pars[3])
-#   d2 <- 0.5 * sum(init[1, c(3,3)] * init[2, c(3,3)] * pars[4] + 
-#                   init[1, c(3,4)] * init[2, c(4,3)] * pars[5] +
-#                   init[1, c(4,4)] * init[2, c(4,4)] * pars[6])
-#   d <- c(d1, d2)
-#-------------------------------------------------- 
+
   c(e, d)
 }
 

@@ -48,6 +48,9 @@ S3method(argnames, mk2)
 S3method(argnames, mkn)
 S3method(argnames, constrained)
 
+export(flatten.pars.gpbisse)
+export(listify.pars.gpbisse)
+
 export("argnames<-")
 S3method("argnames<-", gpbisse)
 S3method("argnames<-", bisse)
