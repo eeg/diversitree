@@ -200,3 +200,64 @@ find.mle(lnL.4, par.3[-seq(3,5)], method="subplex")
 find.mle(lnL.4, par.3, method="subplex")
 # same answer, but "guessing" warning
 
+### gp-sdd
+
+lnL.5 <- make.gpbisse(ttn$tree, ttn$states, nstates)
+
+par.2 <- params     # list defined above
+lnL.5(par.2)        # still -121.3362
+
+par.3 <- flatten.pars.gpbisse(par.2)
+lnL.5(par.3)        # still -121.3362
+
+find.mle(lnL.5, par.3, method="subplex")
+# same as above
+
+
+#--------------------------------------------------
+# 3 states
+# (just to make sure the code runs -- testing later)
+#-------------------------------------------------- 
+
+library(diversitreeGP)
+
+source("/home/emma/src/miscR/ttn.R")
+ttn <- read.ttn("example-clean.ttn", nodes=F)
+ttn$states <- ttn$states + 1
+
+### construct parameter list
+
+nstates <- 3
+
+Lam <- array(seq(0.01, by=0.01), dim=rep(nstates, 3))
+dimnames(Lam) <- list(paste("p", seq(nstates), sep="."), paste("d1", seq(nstates), sep="."), paste("d2", seq(nstates), sep="."))
+Lam[1,1,1] <- 1.0
+Lam[2,2,2] <- 2.0
+Lam[3,3,3] <- 3.0
+Lam[3,,]
+
+Mu <- c(0.3, 0.2, 0.1)
+
+Q <- array(seq(0.05, by=0.02), dim=rep(nstates, 2))
+dimnames(Q) <- list(paste("from", seq(nstates), sep="."), paste("to", seq(nstates), sep="."))
+
+params <- list(lambda=Lam, mu=Mu, q=Q, nstates=as.integer(nstates))
+
+lnL.1 <- make.gpbisse(ttn$tree, ttn$states, nstates)
+
+lnL.1(params)       # -235.545
+
+### renamed files/functions
+
+lnL.5 <- make.gpsdd(ttn$tree, ttn$states, nstates)
+
+par.2 <- params     # list defined above
+lnL.5(par.2)        # still -121.3362
+par.3 <- flatten.pars.gpsdd(par.2)
+lnL.5(par.3)        # still -121.3362
+
+find.mle(lnL.5, par.3, method="subplex")
+
+# 3 states
+lnL.1 <- make.gpsdd(ttn$tree, ttn$states, nstates)
+lnL.1(params)       # -232.9711

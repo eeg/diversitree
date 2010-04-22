@@ -3,12 +3,12 @@
  * with any number of states.
  *
  * For debugging:
- *	 $ gcc -c -I/usr/share/R/include -fPIC gp-bisse-eqs.c
- *	 $ gcc -shared -o gp-bisse-eqs.so gp-bisse-eqs.o
+ *	 $ gcc -c -I/usr/share/R/include -fPIC gpsdd-eqs.c
+ *	 $ gcc -shared -o gpsdd-eqs.so gpsdd-eqs.o
  *	 or instead:
- *	 $ R CMD SHLIB gp-bisse-eqs.c
- *	 That creates gp-bisse-eqs.so.
- *	 In R, dyn.load("gp-bisse-eqs.so").
+ *	 $ R CMD SHLIB gpsdd-eqs.c
+ *	 That creates gpsdd-eqs.so.
+ *	 In R, dyn.load("gpsdd-eqs.so").
  */
 
 #include <R.h>
