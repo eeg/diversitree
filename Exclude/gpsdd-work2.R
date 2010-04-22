@@ -42,13 +42,19 @@ dimnames(Q) <- list(paste("from", seq(nstates), sep="."), paste("to", seq(nstate
 
 params <- list(lambda=Lam, mu=Mu, q=Q, nstates=as.integer(nstates))
 
-### single likelihood calculation
+
+#--------------------------------------------------
+# single likelihood calculation
+#-------------------------------------------------- 
 
 lnL.2 <- make.gpbisse(ttn$tree, ttn$states)
 lnL.2(params)       # -121.3362
 # agrees with make.bisse!
 
-### flatten and re-list-ify the parameter structure (needed for find.mle)
+
+#--------------------------------------------------
+# flatten and re-list-ify the parameter structure (needed for find.mle)
+#-------------------------------------------------- 
 
 # recycle logic from argnames
 flatten.pars.gpbisse <- function(parlist)
@@ -126,6 +132,71 @@ listify.pars.gpbisse <- function(parvec, k)
 params
 p1 <- flatten.pars.gpbisse(params)
 p2 <- listify.pars.gpbisse(p1, nstates)
+lnL.2(p1)
 lnL.2(p2)
 
+
+#--------------------------------------------------
+# ML estimates
+#-------------------------------------------------- 
+
+### bisse
+lnL.1 <- make.bisse(ttn$tree, ttn$states)
+par.1 <- c(1.4, 0.4, 0.2, 0.1, 0.6, 0.35)
+names(par.1) <- argnames(lnL.1)
+find.mle(lnL.1, par.1, method="subplex")
+# $par
+#      lambda0      lambda1          mu0          mu1          q01          q10 
+# 1.109809e+00 3.053652e-01 3.430396e-06 2.187329e-06 5.952360e-01 3.878092e-01 
+# $lnLik
+# [1] -120.3201
+
+
+### gpbisse
+
+lnL.2 <- make.gpbisse(ttn$tree, ttn$states)
+par.2 <- params     # list defined above
+
+par.3 <- flatten.pars.gpbisse(par.2)
+find.mle(lnL.2, par.3, method="subplex")
+#       lam111       lam112       lam122       lam211       lam212       lam222 
+# 1.109786e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 3.053679e-01 
+#          mu1          mu2          q12          q21 
+# 2.306045e-07 2.381490e-07 5.951741e-01 3.877046e-01 
+# $lnLik
+# [1] -120.3201
+
+par.4 <- par.3
+par.4[2:5] <- 0.1
+find.mle(lnL.2, par.4, method="subplex")
+#       lam111       lam112       lam122       lam211       lam212       lam222 
+# 1.109740e+00 3.092353e-08 6.019280e-07 1.560118e-06 1.046539e-10 3.053645e-01 
+#          mu1          mu2          q12          q21 
+# 1.712336e-06 5.788996e-07 5.951114e-01 3.876538e-01 
+# $lnLik
+# [1] -120.3201
+
+# estimation of punctuational lambdas is suspiciously good!
+
+attr(lnL.2, "k") <- nstates
+lnL.3 <- constrain(lnL.2, lam112 ~ 0, lam122 ~ 0, lam211 ~ 0, lam212 ~ 0)
+find.mle(lnL.3, par.3[-seq(2,5)], method="subplex")
+# $par
+#       lam111       lam222          mu1          mu2          q12          q21 
+# 1.109809e+00 3.053652e-01 3.430396e-06 2.187329e-06 5.952360e-01 3.878092e-01 
+# $lnLik
+# [1] -120.3201
+
+# constraining works!
+
+lnL.4 <- constrain(lnL.2, lam122 ~ lam112, lam211 ~ lam112, lam212 ~ lam112)
+find.mle(lnL.4, par.3[-seq(3,5)], method="subplex")
+#       lam111       lam112       lam222          mu1          mu2          q12 
+# 1.109843e+00 2.902625e-07 3.053895e-01 1.480125e-05 9.099486e-05 5.952365e-01 
+#          q21 
+# 3.877907e-01 
+# $lnLik
+# [1] -120.3202
+find.mle(lnL.4, par.3, method="subplex")
+# same answer, but "guessing" warning
 

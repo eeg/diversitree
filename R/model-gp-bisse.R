@@ -180,18 +180,14 @@ ll.gpbisse <- function(cache, pars, branches, prior=NULL,
                      intermediates=FALSE,
                      root.p0=NA, root.p1=NA) {
     if (class(pars) != "list")
-        # todo: lots more error checking somewhere
-        stop("Invalid parameter structure (expecting a list)")
+      if (length(pars) == 10)
+        pars <- listify.pars.gpbisse(pars, 2)
+      else
+        stop("Invalid parameter structure.")
+    # todo: lots more error checking somewhere
     if (any(unlist(lapply(pars, function(x) any(x < 0)))) || 
-        any(unlist(lapply(pars, function(x) !is.finite(x)))))
-        return(-Inf)
-#--------------------------------------------------
-#   # see argnames above for generalizing to k states
-#   if ( length(pars) != 10 )
-#     stop("Invalid parameter length (expected 10)")
-#   if ( any(pars < 0) || any(!is.finite(pars)) )
-#     return(-Inf)
-#-------------------------------------------------- 
+      any(unlist(lapply(pars, function(x) !is.finite(x)))))
+      return(-Inf)
 
   if ( !is.na(root.p0) ) {
     warning("root.p0 is deprecated: please use root.p instead")
