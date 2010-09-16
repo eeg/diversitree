@@ -61,10 +61,10 @@ find.mle(func, x.init, method, ...)
 
   Different methods will be dispatched for different types of likelihood
   functions.  Currently all models in \code{diversitree} are supported
-  (\code{bisse}, \code{mk2}, \code{mkn}, \code{bd}, and \code{yule}).
-  With the exception of the Yule pure-birth process, these methods just
-  specify different default arguments for the underlying optimisation
-  routines (the Yule model has an analytical solution, and no
+  (\code{bisse}, \code{geosse}, \code{mk2}, \code{mkn}, \code{bd}, and 
+  \code{yule}).  With the exception of the Yule pure-birth process, these
+  methods just specify different default arguments for the underlying
+  optimisation routines (the Yule model has an analytical solution, and no
   optimisation step is required).  Generally, it will not be necessary
   to specify the \code{method} argument to \code{find.mle} as a sensible
   method is chosen during dispatch.

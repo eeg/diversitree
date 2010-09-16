@@ -5,6 +5,17 @@ added a little to DESCRIPTION
 added to NAMESPACE
 model-geosse.R (was model-gse2.R)
 
+help files modified:
+	argnames.Rd
+	constants.Rd
+	find.mle.Rd
+	mcmc.Rd
+also created make.geosse.Rd
+
+TODO before distributing:
+	condition.surv now has default FALSE; change to TRUE in code and documentation? we use false in paper's analyses...
+	update \references in make.geosse.Rd
+
 
 CHANGES (from Rich's diversitree, v0.4)
 -------
