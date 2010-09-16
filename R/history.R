@@ -68,6 +68,7 @@ plot.history <- function(x, phy, cols=seq_along(states),
                          show.node.label=FALSE,
                          show.tip.state=TRUE,
                          show.node.state=TRUE,
+                         no.margin=FALSE,
                          cex=1, font=3,
                          srt=0, adj=0,
                          label.offset=0,
@@ -75,11 +76,18 @@ plot.history <- function(x, phy, cols=seq_along(states),
   label.offset <- if ( show.tip.state ) 1 else 0
   discrete <- x$discrete
 
-  xy <- plot.phylo.node.coords(phy)
+  xy <- pp.node.coords(phy)
   obj <- plot.history.coords(phy, xy, x)
-  plot.phylo.prepare(phy, xy, xlim, ylim, cex, show.tip.label,
-                     label.offset, ...)
 
+  if ( no.margin )
+    par(mar=rep(0, 4))
+
+  lims <- pp.lim.phylogram(phy, xy, xlim, ylim, cex,
+                           show.tip.label, label.offset)
+  plot(NA, type="n", xlim=lims$xlim, ylim=lims$ylim, xlab="",
+       ylab="", xaxt="n", yaxt="n", bty="n", asp=NA, ...)
+
+  
   ## Improve the colour->tip mapping.  There are a couple of options -
   ## we could have data in {0,1} or {1,2,...,k}
   ## Both may be possibly missing states.
@@ -104,18 +112,31 @@ plot.history <- function(x, phy, cols=seq_along(states),
   with(obj, segments(x0, y0, x1, y1, col=cols.seg))
 
   if ( show.tip.label )
-    plot.phylo.tiplabel(phy, xy, label.offset,
-                        cex=cex, font=font, srt=srt, adj=adj)
+    pp.tiplabel.phylogram(phy, xy, label.offset, col="black",
+                          cex=cex, font=font, adj=adj)
   if ( show.node.label )
-    plot.phylo.nodelabel(phy, xy, label.offset,
-                         cex=cex, font=font, srt=srt, adj=adj)
+    pp.nodelabel.phylogram(phy, xy, label.offset,
+                           cex=cex, font=font, srt=srt, adj=adj)
   if ( show.node.state )
-    plot.phylo.nodepoints(phy, xy, cex=cex, col=cols.node)
+    pp.nodepoints.phylogram(phy, xy, cex=cex, col=cols.node)
   if ( show.tip.state )
-    plot.phylo.tippoints(phy, xy, cex=cex, col=cols.tip)
+    pp.tippoints.phylogram(phy, xy, cex=cex, col=cols.tip)
 
-  plot.phylo.cleanup(phy, xy, show.tip.label, show.node.label,
-                     font, cex, adj, srt, label.offset, xlim, ylim)
+
+  ## TODO: This is a hack.
+  ret <- list(type="cladogram", use.edge.length=TRUE,
+              node.pos=NULL, show.tip.label=show.tip.label,
+              show.node.label=show.node.label, font=font,
+              cex=cex, adj=adj, srt=srt, no.margin=no.margin,
+              label.offset=label.offset,
+              x.lim=lims$xlim, y.lim=lims$ylim,
+              direction="rightwards", tip.color="black",
+              Ntip=length(phy$tip.label), Nnode=phy$Nnode,
+              edge=phy$edge, xx=xy$xx, yy=xy$yy,
+              ## Extra below here
+              n.taxa=phy$n.taxa, n.spp=phy$n.spp, xy=xy, xy.seg=obj)
+  assign("last_plot.phylo", ret, envir=.PlotPhyloEnv)
+  invisible(ret)
 }
 
 ## This generates the segment matrix, as in plot.phylo.coords, but
@@ -126,7 +147,7 @@ plot.history.coords <- function(phy, xy, hist) {
   s <- hist$node.state
   h <- hist$history
 
-  obj <- plot.phylo.coords(phy, xy)
+  obj <- pp.coords.phylogram(phy, xy)
 
   ## First, get the state at the *base* of each branch
   obj$state <- c(s, sapply(h, function(x) x[1,2]))
