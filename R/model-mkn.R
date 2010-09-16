@@ -35,6 +35,8 @@ make.mkn <- function(tree, states, k, use.mk2=FALSE) {
 
   ll.mkn <- function(cache, pars, prior=NULL, root=ROOT.OBS,
                      root.p=NULL, intermediates=FALSE) {
+    if ( !is.null(prior) )
+      stop("'prior' argument to likelihood function no longer accepted")
     if ( length(pars) != k*(k-1) )
       stop(sprintf("Invalid length parameters (expected %d)", k*(k-1)))
     if ( any(!is.finite(pars)) || any(pars < 0) )
@@ -42,15 +44,15 @@ make.mkn <- function(tree, states, k, use.mk2=FALSE) {
     qmat[idx] <- pars
     diag(qmat) <- -rowSums(qmat)
     ans <- all.branches.mkn(qmat, cache)
-    d.root <- ans$init[cache$root,]
+    d.root <- ans$init[[cache$root]]
     root.p <- root.p.mkn(d.root, pars, root, root.p)
     loglik <- root.mkn(d.root, ans$lq, root.p)
     if ( intermediates ) {
-      ans$init[seq_len(n.tip),] <- cache$y$y[cache$y$i,]
+      ans$init[seq_len(n.tip)] <- matrix.to.list(cache$y$y[cache$y$i,])
       ans$root.p <- root.p
     }
 
-    cleanup(loglik, pars, prior, intermediates, cache, ans)
+    cleanup(loglik, pars, intermediates, cache, ans)
   }
 
   ll <- function(pars, ...) ll.mkn(cache, pars, ...)
@@ -109,14 +111,9 @@ find.mle.mkn <- function(func, x.init, method,
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
 make.cache.mkn <- function(tree, states, k, use.mk2) {
-  if ( !inherits(tree, "phylo") )
-    stop("'tree' must be a valid phylo tree")
-  if ( is.null(names(states)) )
-    stop("The states vector must contain names")
-  if ( !all(tree$tip.label %in% names(states)) )
-    stop("Not all species have state information")
-  states <- states[tree$tip.label]
-  names(states) <- tree$tip.label
+  tree <- check.tree(tree)
+  states <- check.states(tree, states)
+
   cache <- make.cache(tree)
   cache$k <- k
   cache$tip.state  <- states
@@ -191,7 +188,7 @@ root.mkn <- function(vals, lq, root.p) {
 
 ## 7: initial.conditions:
 initial.conditions.mkn <- function(init, pars, t, is.root=FALSE)
-  init[1,] * init[2,]
+  init[[1]] * init[[2]]
 
 ## 8: branches (separate for mk2 and mkn)
 pij.mk2 <- function(len, pars) {
@@ -276,6 +273,8 @@ all.branches.mkn <- function(pars, cache) {
             lq       = lq,
             NAOK=TRUE, DUP=FALSE)
 
-  list(init=t(ans$init), base=t(ans$base), lq=ans$lq, pij=pij)
+  list(init=matrix.to.list(t(ans$init)),
+       base=matrix.to.list(t(ans$base)),
+       lq=ans$lq, pij=pij)
 }
 
