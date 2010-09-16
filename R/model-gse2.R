@@ -8,13 +8,14 @@
 ##   6. ll
 ##   7. initial.conditions
 ##   8. branches
-##   9. branches.unresolved
+##   (no longer branches.unresolved)
 
 ## 1: make
 make.gse2 <- function(tree, states, unresolved=NULL, sampling.f=NULL,
-                       nt.extra=10, safe=FALSE) {
+                       nt.extra=10, safe=FALSE, strict=TRUE) {
   cache <- make.cache.gse2(tree, states, unresolved=unresolved,
-                            sampling.f=sampling.f, nt.extra=10)
+                            sampling.f=sampling.f, nt.extra=nt.extra,
+                            strict=strict)
   branches <- make.branches.gse2(safe)
   ll <- function(pars, ...) ll.gse2(cache, pars, branches, ...)
   class(ll) <- c("gse2", "function")
@@ -46,7 +47,7 @@ argnames.gse2 <- function(x, ...) {
 find.mle.gse2 <- function(func, x.init, method,
                            fail.value=NA, ...) {
   if ( missing(method) )
-    method <- "optim"
+    method <- "subplex"
   NextMethod("find.mle", method=method, class.append="fit.mle.gse2")
 }
 
@@ -54,73 +55,80 @@ find.mle.gse2 <- function(func, x.init, method,
 ## 5: make.cache (initial.tip, root)
 # almost identical to make.cache.bisse(), but uses three states
 make.cache.gse2 <- function(tree, states, unresolved=NULL,
-                             sampling.f=NULL, nt.extra=10) {
-  if ( !inherits(tree, "phylo") )
-    stop("'tree' must be a valid phylo tree")
-  if ( is.null(names(states)) )
-    stop("The states vector must contain names")
+                             sampling.f=NULL, nt.extra=10,
+                             strict=TRUE) {
+  ## RGF: There is a potential issue here with states, as
+  ## 'unresolved' may contain one of the states.  For now I am
+  ## disabling the check, but this is not great.
+  if ( strict && !is.null(unresolved) ) {
+    strict <- FALSE
+  }
+
+  tree <- check.tree(tree)
+  states <- check.states(tree, states, strict=strict, strict.vals=0:2)
+
+  # check unresolved
+  if ( !is.null(unresolved) ) {
+      stop("Unresolved clades not yet available for GSE2")
+  }
+  if ( inherits(tree, "clade.tree") ) {
+    if ( !is.null(unresolved) )
+      stop("'unresolved' cannot be specified where 'tree' is a clade.tree")
+    #unresolved <- make.unresolved(tree$clades, states)
+  }
 
   ## Check 'sampling.f'
   if ( !is.null(sampling.f) && !is.null(unresolved) )
     stop("Cannot specify both sampling.f and unresolved")
-  else if ( is.null(sampling.f) )
-    sampling.f <- c(1, 1, 1)
-  else if ( length(sampling.f) != 3 )
-    stop("sampling.f must be of length 3 (or NULL)")
-  else if ( max(sampling.f) > 1 || min(sampling.f) <= 0 )
-    stop("sampling.f must be on range (0,1]")
+  else
+    sampling.f <- check.sampling.f(sampling.f, 3)
 
-  if ( !is.null(unresolved) ) {
-      stop("Unresolved clades not yet available for GSE2")
-  }
-  
-  ## Check that we know about all required species (this requires
-  ## processing the unresolved clade information).
-  known <- names(states)
-  if ( !is.null(unresolved) )
-    known <- unique(c(known, as.character(unresolved$tip.label)))
-  if ( !all(tree$tip.label %in% known) )
-    stop("Not all species have state information")
-  states <- states[tree$tip.label]
-  names(states) <- tree$tip.label
+  # would also need: unresolved <- check.unresolved(cache, unresolved, nt.extra)
 
   cache <- make.cache(tree)
   cache$tip.state  <- states
-  cache$unresolved <- unresolved
   cache$sampling.f <- sampling.f
-  cache$nt.extra   <- nt.extra
+  cache$unresolved <- unresolved # would need more here
+
   cache$y <- initial.tip.gse2(cache)
   cache
 }
 
+## By the time this hits, unresolved clades and any other non-standard
+## tips have been removed.  We have an index "tips" (equal to 1:n.tip
+## for plain bisse/gse2) that is the "index" (in phy$edge numbering) of the
+## tips, and a state vector cache$tip.state, both of the same length.
+## The length of the terminal branches is cache$len[cache$tips].
+##
 ## Initial conditions at the tips are given by their tip states:
 ## There are four types of initial condition in gse2:
 ##   state0: c(f_0, 0,   0,    1-f_0, 1-f_1, 1-f_2)
 ##   state1: c(0,   f_1, 0,    1-f_0, 1-f_1, 1-f_2)
-##   state3: c(0,   0,   f_2,  1-f_0, 1-f_1, 1-f_2)
+##   state2: c(0,   0,   f_2,  1-f_0, 1-f_1, 1-f_2)
 ##   state?: c(f_0, f_1, f_2,  1-f_0, 1-f_1, 1-f_2)
-## Build this small matrix of possible initial conditions (y), then
-## work out which of the three types things are (i).  Note that y[i,]
-## gives the full initial conditions.  The element 'types' contains
-## the different possible conditions.
-# used to be in gse2.branches()
 initial.tip.gse2 <- function(cache) {
   f <- cache$sampling.f
   y <- rbind(c(1-f, f[1], 0, 0),
              c(1-f, 0, f[2], 0),
              c(1-f, 0, 0, f[3]),
              c(1-f, f))
-  i <- cache$tip.state + 1
-  if ( !is.null(cache$unresolved) )
-    i <- i[-cache$unresolved$i]
-  i[is.na(i)] <- 4
-  list(y=y, i=i, types=sort(unique(i)))
+  y.i <- cache$tip.state + 1
+  y.i[is.na(y.i)] <- 4
+
+  tips <- cache$tips
+
+  ## This would return a data structure appropriate for the more basic
+  ## tip treatment:
+  ##   dt.tips.ordered(y[y.i], tips, cache$len[tips])
+  dt.tips.grouped(y, y.i, tips, cache$len[tips])
 }
 
-## 6: ll
+## 6: ll (note: condition.surv=TRUE in bisse)
 ll.gse2 <- function(cache, pars, branches, prior=NULL,
                      condition.surv=FALSE, root=ROOT.OBS, root.p=NULL,
                      intermediates=FALSE) {
+if ( !is.null(prior) )
+    stop("'prior' argument to likelihood function no longer accepted")
  if ( length(pars) != 7 )
     stop("Invalid parameter length (expected 7)")
   if ( any(pars < 0) || any(!is.finite(pars)))
@@ -129,12 +137,11 @@ ll.gse2 <- function(cache, pars, branches, prior=NULL,
   if ( !is.null(root.p) && root != ROOT.GIVEN )
     warning("Ignoring specified root state")
 
-  gse2.ll(pars, cache, initial.conditions.gse2,
-           branches, branches.unresolved.gse2,
-           condition.surv, root, root.p,
-           prior, intermediates)
+  # would need something here for unresolved
+
+  ll.gse2(pars, cache, initial.conditions.gse2, branches,
+           condition.surv, root, root.p, intermediates)
 }
-# gse2.ll() was here
 
 ## 7: initial.conditions:
 initial.conditions.gse2 <- function(init, pars, t, is.root=FALSE) {
@@ -193,10 +200,9 @@ stationary.freq.gse2 <- function(pars) {
   return(freqs)
 }
 
-# dunno if this is much better than nothing...
-# TODO: come up with something more sensible
+# dunno if this is much better than nothing... should come up with something more sensible
 starting.point.gse2 <- function(tree, q.div=5, yule=FALSE) {
-  ## TODO: Use qs estimated from Mk2?  Can be slow is the only reason
+  ## RGF: Use qs estimated from Mk2?  Can be slow is the only reason
   ## I have not set this up by default.
   ## find.mle(constrain(make.mk2(phy, phy$tip.state), q10 ~ q01), .1)$par
   pars.bd <- suppressWarnings(starting.point.bd(tree, yule))
@@ -212,47 +218,19 @@ starting.point.gse2 <- function(tree, q.div=5, yule=FALSE) {
 # For GSE2, think about what a sensible set of default models would be.
 # all.models.gse2 <- function(f, p, ...) { ... }
 
-# mle and anova stuff that used to be here is now covered generically in mle.R
+# check.unresolved would go here
+# mle and anova stuff is covered generically in mle.R
 
-# modified from diversitree-branches.R: xxsse.ll()
-gse2.ll <- function(pars, cache, initial.conditions,
-                     branches, branches.unresolved, 
-                     condition.surv, root, root.p,
-                     prior, intermediates) {
-  ans <- all.branches(pars, cache, initial.conditions,
-                      branches, branches.unresolved)
+# NOTE:
+# Functions below are taken from diversitree-branches.R.  Internal
+# modifications were necessary, but the parent functions could likely be
+# generalized with the aid of classes.
 
-  vals <- ans$init[cache$root,]
-  root.p <- root.p.gse2(vals, pars, root, root.p)
-  loglik <- root.gse2(vals, pars, ans$lq, condition.surv, root.p)
-  cleanup(loglik, pars, prior, intermediates, cache, ans)
-}
-
-# modified from diversitree-branches.R: root.xxsse()
-root.gse2 <- function(vals, pars, lq, condition.surv, root.p) {
-  logcomp <- sum(lq)
-
-  k <- 3 # number of states
-  i <- seq_len(k)
-  lambda <- c(sum(pars[1:3]), pars[1:2])
-  e.root <- vals[i]
-  d.root <- vals[-i]
-
-  # root.mode stuff moved to root.p.gse2()
-  
-  if ( condition.surv )
-    d.root <- d.root / (lambda * (1-e.root)^2)
-
-  if ( is.null(root.p) ) # ROOT.BOTH
-    loglik <- log(d.root) + logcomp
-  else
-    loglik <- log(sum(root.p * d.root)) + logcomp
-  loglik
-}
-
-# unlike root.p.xxsse(), returned p is always a vector of length k
+# modified from diversitree-branches.R: root.p.xxsse()
+#   allows ROOT.EQUI for gse2
+#   returned p is always a vector of length k (or NULL)
 root.p.gse2 <- function(vals, pars, root, root.p=NULL) {
-  k <- 3 # number of states
+  k <- length(vals) / 2
   d.root <- vals[-seq_len(k)]
 
   if ( root == ROOT.FLAT )
@@ -270,4 +248,40 @@ root.p.gse2 <- function(vals, pars, root, root.p=NULL) {
   else
     stop("Invalid root mode")
   p
+}
+
+# modified from diversitree-branches.R: root.xxsse()
+#   the only difference is lambda
+root.gse2 <- function(vals, pars, lq, condition.surv, root.p) {
+  logcomp <- sum(lq)
+
+  k <- length(vals) / 2
+  i <- seq_len(k)
+
+  # note: AB species are subject to all three speciation rates
+  lambda <- c(sum(pars[1:3]), pars[1:2])
+  e.root <- vals[i]
+  d.root <- vals[-i]
+
+  if ( condition.surv )
+    d.root <- d.root / (lambda * (1-e.root)^2)
+
+  if ( is.null(root.p) ) # ROOT.BOTH
+    loglik <- log(d.root) + logcomp
+  else
+    loglik <- log(sum(root.p * d.root)) + logcomp
+  loglik
+}
+
+# modified from diversitree-branches.R: ll.xxsse()
+#   only difference is names of root function calls (the above functions)
+ll.gse2 <- function(pars, cache, initial.conditions,
+                     branches, condition.surv, root, root.p,
+                     intermediates) {
+  ans <- all.branches(pars, cache, initial.conditions, branches)
+  vals <- ans$init[[cache$root]]
+  root.p <- root.p.gse2(vals, pars, root, root.p)
+  loglik <- root.gse2(vals, pars, ans$lq, condition.surv, root.p)
+  ans$root.p <- root.p
+  cleanup(loglik, pars, intermediates, cache, ans)
 }

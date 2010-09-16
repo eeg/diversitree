@@ -1,3 +1,11 @@
+CHANGES (from Rich's diversitree, v0.5)
+-------
+
+added a little to DESCRIPTION
+added to NAMESPACE
+model-gse2.R
+
+
 CHANGES (from Rich's diversitree, v0.4)
 -------
 
