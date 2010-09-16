@@ -33,7 +33,7 @@ make.bisse.td <- function(tree, states, n.epoch, unresolved=NULL,
 }
 
 ## 2: print
-print.bisse <- function(x, ...) {
+print.bisse.td <- function(x, ...) {
   cat("BiSSE/td likelihood function:\n")
   print(unclass(x))
 }
@@ -52,7 +52,7 @@ argnames.bisse.td <- function(x, n.epoch=attr(x, "n.epoch"), ...) {
 }
 
 ## 4: find.mle
-find.mle.musse <- function(func, x.init, method, fail.value=NA, ...) {
+find.mle.bisse.td <- function(func, x.init, method, fail.value=NA, ...) {
   if ( missing(method) )
     method <- "subplex"
   NextMethod("find.mle", method=method, class.append="fit.mle.bisse.td")

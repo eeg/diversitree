@@ -1,3 +1,54 @@
+2010-08-12  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* DESCRIPTION: Bumped version number to 0.5-2
+
+	* R/model-bd-split.R: make.bd.split has new default for split.t,
+	copying MEDUSA's default behaviour.
+
+	* R/split.R: Fixed bug in negative branch check.
+
+	* src/bucexp.f, src/dmexpv.f, src/dsexpv.f, src/dsexpvi.f,
+	src/hyperg.f: Tidied code to remove compiler warnings.
+
+2010-08-06  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* R/model-bd-split.R: Fixed local naming error (phy->tree).
+
+	* man/argnames.Rd: Example was broken with strict character
+	checking.
+
+	* man/make.bisse.Rd: Document strict character checking.
+
+2010-07-27  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* NAMESPACE, R/model-bd-split.R: New bd.split model
+
+	* R/split.R: Improved handling of times around splits.
+
+	* R/split-recycle.R: Removed.
+
+2010-07-20  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
+
+	* R/model-bisse-split.R, R/split.R: Removed the recycling code.
+
+	* NAMESPACE: New exports for the BiSSE/td model.
+
+	* R/check.R: Strengthened state checking.
+
+	* R/diversitree-branches.R: Renamed xxsse.ll -> ll.xxsse
+
+	* R/model-bisse-split.R: Now includes parameter recycling.
+
+	* R/model-bisse-td.R: New model
+
+	* R/model-bisse.R, R/model-musse.R: Strict state checking, other
+	minor changes.
+
+	* R/split.R, R/split-recycle.R: Bulk of the parameter recycling
+	code.
+
+	* R/td.R: New time dependent code
+
 2010-06-23  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
 
 	* R/diversitree-branches.R: Many changes to all.branches to remove

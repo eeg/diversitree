@@ -82,7 +82,6 @@ all.branches <- function(pars, cache, initial.conditions, branches) {
   n.tip <- cache$n.tip
 
   y <- cache$y
-  tips <- cache$tips
   branch.init <- branch.base <- vector("list", n)
 
   ## TODO: This should also move in the tip conditions perhaps?
@@ -115,7 +114,7 @@ all.branches <- function(pars, cache, initial.conditions, branches) {
       }
     }
   } else {
-    tip.y <- branch.init[tips] <- y$y
+    tip.y <- branch.init[cache$tips] <- y$y
     tip.t <- y$t
     tip.target <- y$target
     for ( i in seq_along(tip.y) ) {
@@ -176,7 +175,8 @@ make.cache <- function(tree) {
   depth <- max(height) - height
 
   ## TODO: I don't need this ancestor thing for much - drop it here
-  ## and move it to the asr code that actually uses it.
+  ## and move it to the asr code that actually uses it (this takes a
+  ## lot of time, and is only used by the ASR code).
   anc <- vector("list", max(order))
   for ( i in c(rev(order[-length(order)]), tips) )
     anc[[i]] <- c(parent[i], anc[[parent[i]]])
@@ -314,8 +314,6 @@ make.branches <- function(branches, idx, eps=0) {
 
 ## Utility functions for organising initial conditions.
 ## TODO: Document.
-## (the stops here are because these will be used by model
-## developers).
 dt.tips.grouped <- function(y, y.i, tips, t) {
   if ( !is.list(y) )
     stop("'y' must be a list of initial conditions")

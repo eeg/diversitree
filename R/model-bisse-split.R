@@ -136,10 +136,6 @@ ll.bisse.split <- function(cache, pars, branches, branches.aux,
   if ( any(pars.n < 0) || any(!is.finite(pars.n)) )
     return(-Inf)
 
-  ## TODO:
-  if ( intermediates )
-    .NotYetUsed("intermediates")
-
   for ( i in seq_len(n.part) ) {
     unresolved.i <- cache$cache[[i]]$unresolved
     if ( !is.null(unresolved.i) )
@@ -150,10 +146,6 @@ ll.bisse.split <- function(cache, pars, branches, branches.aux,
   ans <- all.branches.split(pars, cache, initial.conditions.bisse,
                             branches, branches.aux)
 
-  ## TODO: all.branches.split still does not return the 'obj'
-  ## component, which will be required to really use the
-  ## intermediates, which I will use for partitioned optimisation.
-  
   vars <- ans[[1]]$base
   lq <- unlist(lapply(ans, "[[", "lq"))
   pars.root <- pars[[1]]

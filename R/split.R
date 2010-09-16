@@ -18,8 +18,8 @@ check.split <- function(phy, nodes, split.t) {
   ## Check that split times are OK
   t0 <- branching.times(phy)[nodes - n.tip]
   t1 <- t0 + phy$edge.length[match(nodes, phy$edge[,2])]
-  split.t[split.t == 0] <- t0
-  split.t[split.t == Inf] <- t1
+  split.t[split.t == 0] <- t0[split.t == 0]
+  split.t[split.t == Inf] <- t1[split.t == Inf]
   if ( any(split.t < t0 | split.t > t1) )
     stop("Invalid split time")
 
@@ -41,7 +41,7 @@ split.phylo <- function(x, f, drop=FALSE, split.t, ...) {
   bt <- branching.times(phy)
   tt <- structure(rep(0, n.tip), names=phy$tip.label) # tip times
 
-  group <- make.split.phylo.vec(phy, nodes[-1])
+  ## group <- make.split.phylo.vec(phy, nodes[-1])
   group <- make.split.phylo.vec(phy, nodes)
 
   ## Find the *parent* of the different groups, so that we can
@@ -79,10 +79,28 @@ split.phylo <- function(x, f, drop=FALSE, split.t, ...) {
       ## Trim the dummy branches
       spp <- names(extra.tips[daughters])
       j <- match(match(spp, phy2$tip.label), phy2$edge[,2])
-      phy2$edge.length[j] <- phy2$edge.length[j] - split.t[daughters]
+      len <- phy2$edge.length[j] - split.t[daughters]
+
+      ## TODO: Another hack (this should only be negative by
+      ## rounding error, when zero is really what is required).
+      if ( any(len < 0) ) {
+        if ( any(abs(len) > 1e-6) )
+          stop("Illegal negative branch length")
+        len[len < 0] <- 0
+      }
+
+      ## TODO: Another hack.  Some *very* short values of len can
+      ## cause the integrator to fail (my guess is when this is
+      ## divided apart by the underlying code).  This will just
+      ## truncate these, as they probably should be zero anyway.
+      if ( any(len < 1e-10) )
+        len[len < 1e-10] <- 0
+      phy2$edge.length[j] <- len
+      
       names(daughters) <- names(extra.tips[daughters])
       phy2$tt[spp] <- split.t[daughters]
       phy2$daughters <- daughters[order(split.t[daughters])]
+      phy2$anc <- ancestors(phy2, match(names(daughters), phy2$tip.label))
     }
 
     if ( !is.na(nodes[idx]) )
@@ -145,60 +163,36 @@ dt.split.order <- function(daughters, parents) {
     daughters[j] <- lapply(daughters[j], setdiff, i)
     pending[i] <- FALSE
   }
-  
+
   order
 }
 
 all.branches.split <- function(pars, cache, initial.conditions, branches,
-                               branches.aux, intermediates=FALSE) {
-  ## TODO: 'n' is a stupid name: change to n.part or n.split
+                               branches.aux) {
   n.part <- cache$n.part
-  obj <- res <- vector("list", n.part)
+  res <- vector("list", n.part)
+
   aux.i <- cache$aux.i # 1, 2 (E0, E1) for BiSSE
 
-  ## TODO: 'order' is confusing with the *other* cache$order
-  ## change to order.part
-  for ( i in cache$order ) {
+  for ( i in cache$order.parts ) {
     x <- cache$cache[[i]]
 
-    ## It might be the case that auxilliary variables need computing
-    ## at splits.  For example, in BiSSE (and friends), when switching
-    ## parameter space, rather than take the E values from the
-    ## daughter lineage, I need to recompute them to use the new
-    ## parameters at this point (a lineage arising just below the
-    ## split would have a totally different probability of extinction
-    ## than one after the split).  In this case I have to run a new
-    ## branch down with the parent set and parent sampling.f.  The 'D'
-    ## values from doing this would be ignored.  For mk2 (and friends)
-    ## this is not an issue.
     if ( length(x$daughters) > 0 ) {
+      ## Add the daughters
       y <- res[x$daughters]
-      ## TODO:
-      ##   x$depth[names(x$daughters)]
-      ## might be replaced with
-      ##   x$depth[x$daughters.i]
-      ## I think?
-      x$depth[names(x$daughters)]
-      
-      aux <- branches.aux(i, x$depth[names(x$daughters)], pars[[i]])
-      if ( is.matrix(aux) )
-        aux <- matrix.to.list(aux)
-
       preset <- list(target=x$daughters.i,
                      base=vector("list", length(x$daughters)),
                      lq=numeric(length(x$daughters)))
+      
+      aux <- branches.aux(i, x$depth[x$daughters.i], pars[[i]])
+      if ( is.matrix(aux) )
+        aux <- matrix.to.list(aux)
       
       for ( j in seq_along(x$daughters) ) {
         yj <- res[[x$daughters[j]]]$base
         yj[aux.i] <- aux[[j]]
         idx <- x$daughters.i[j]
-        ## TODO: Another hack...
-        if ( x$len[idx] < 0 ) {
-          if ( x$len[idx] < 1e-6 )
-            x$len[idx] <- 0
-          else
-            stop("Illegal negative branch length")
-        }
+
         tmp <- branches(yj, x$len[idx], pars[[i]], x$depth[idx])
         preset$lq[j] <- tmp[1]
         preset$base[[j]] <- tmp[-1]
@@ -206,26 +200,28 @@ all.branches.split <- function(pars, cache, initial.conditions, branches,
 
       if ( is.null(x$preset) ) {
         x$preset <- preset
-      } else { # TODO: This should be done with something like modifyList
+      } else {
         x$preset$target <- c(x$preset$target, preset$target)
         x$preset$lq     <- c(x$preset$lq,     preset$lq)
         x$preset$base   <- c(x$preset$base,   preset$base)
       }
     }
 
-    obj[[i]] <-
-      all.branches(pars[[i]], x, initial.conditions, branches)
+    ## Run the traversal.
+    obj <- all.branches(pars[[i]], x, initial.conditions, branches)
 
-    base <- obj[[i]]$init[[x$root]]
+    ## Trailing branch:
+    base <- obj$init[[x$root]]
     if ( !is.na(cache$parent[i]) ) { # trailing to deal with...
       tmp <- branches(base, x$trailing.len, pars[[i]], x$trailing.t0)
-      res[[i]] <- list(lq=tmp[1] + sum(obj[[i]]$lq), base=tmp[-1])
+      res[[i]] <- list(lq=tmp[1] + sum(obj$lq),
+                       base=tmp[-1],
+                       intermediates=obj)
     } else {
-      res[[i]] <- list(lq=sum(obj[[i]]$lq), base=base)
+      res[[i]] <- list(lq=sum(obj$lq),
+                       base=base,
+                       intermediates=obj)
     }
-
-    if ( intermediates )
-      res[[i]]$intermediates <- obj[[i]]
   }
 
   res
@@ -271,24 +267,40 @@ make.cache.split <- function(tree, nodes, split.t) {
       ## Note that this does not fix the height case...
       bt <- tree.sub$bt
       dt <- res$depth[names(bt)] - bt
-      if ( diff(range(dt)) > 1e-8 ) {
+      if ( diff(range(dt)) > 1e-8 )
         stop("I am confused...")
-      } else {
+      else
         res$depth <- (res$depth - dt[1])
-      }
+
+      ## This was old code for when recycling was being used.
+      ## if ( !is.null(tree.sub$anc) ) {
+      ##   res$recycle.order <-
+      ##     apply(tree.sub$anc, 2, `%in%`, x=res$order)
+      ##   nd <- res$order[rowSums(res$recycle.order) > 0]
+      ##   res$recycle.keep <- sort(as.integer(res$children[nd,]))
+      ## }
     }
 
     cache$cache[[i]] <- res
     
     cache$parents[i] <- tree.sub$parent
     cache$daughters[i] <- list(res$daughters)
-    if ( length(cache$daughters) != n.part )
-      browser()
     cache$tip.tr[tree.sub$tip.label[res$tips]] <- i
   }
 
   cache$n.parts <- length(subtrees)
   cache$order.parts <- dt.split.order(cache$daughters, cache$parents)
 
+  cache$desc.parts <- vector("list", n.part)
+  for ( i in cache$order.parts ) {
+    j <- cache$daughters[[i]]
+    cache$desc.parts[i] <- list(c(unlist(cache$desc.parts[j]), j))
+  }
+
+  ## Old recycle code:
+  ## cache$prev <- new.env()
+  ## cache$prev$res <- lapply(seq_len(n.part), function(...)
+  ##                          make.stack(n.recycle))
+  
   cache
 }
