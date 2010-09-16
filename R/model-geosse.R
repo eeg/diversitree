@@ -11,32 +11,32 @@
 ##   (no longer branches.unresolved)
 
 ## 1: make
-make.gse2 <- function(tree, states, unresolved=NULL, sampling.f=NULL,
+make.geosse <- function(tree, states, unresolved=NULL, sampling.f=NULL,
                        nt.extra=10, safe=FALSE, strict=TRUE) {
-  cache <- make.cache.gse2(tree, states, unresolved=unresolved,
+  cache <- make.cache.geosse(tree, states, unresolved=unresolved,
                             sampling.f=sampling.f, nt.extra=nt.extra,
                             strict=strict)
-  branches <- make.branches.gse2(safe)
-  ll <- function(pars, ...) ll.gse2(cache, pars, branches, ...)
-  class(ll) <- c("gse2", "function")
+  branches <- make.branches.geosse(safe)
+  ll <- function(pars, ...) ll.geosse(cache, pars, branches, ...)
+  class(ll) <- c("geosse", "function")
   ll
 }
 
 ## 2: print
-print.gse2 <- function(x, ...) {
-  cat("GSE2 likelihood function:\n")
+print.geosse <- function(x, ...) {
+  cat("GeoSSE likelihood function:\n")
   print(unclass(x))
 }
 
 ## 3: argnames / argnames<-
-argnames.gse2 <- function(x, ...) {
+argnames.geosse <- function(x, ...) {
   ret <- attr(x, "argnames")
   if ( is.null(ret) )
     c("sA", "sB", "sAB", "xA", "xB", "dA", "dB")
   else
     ret
 }
-`argnames<-.gse2` <- function(x, value) {
+`argnames<-.geosse` <- function(x, value) {
   if ( length(value) != 7 )
     stop("Invalid names length")
   attr(x, "argnames") <- value
@@ -44,17 +44,17 @@ argnames.gse2 <- function(x, ...) {
 }
 
 ## 4: find.mle
-find.mle.gse2 <- function(func, x.init, method,
+find.mle.geosse <- function(func, x.init, method,
                            fail.value=NA, ...) {
   if ( missing(method) )
     method <- "subplex"
-  NextMethod("find.mle", method=method, class.append="fit.mle.gse2")
+  NextMethod("find.mle", method=method, class.append="fit.mle.geosse")
 }
 
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
 # almost identical to make.cache.bisse(), but uses three states
-make.cache.gse2 <- function(tree, states, unresolved=NULL,
+make.cache.geosse <- function(tree, states, unresolved=NULL,
                              sampling.f=NULL, nt.extra=10,
                              strict=TRUE) {
   ## RGF: There is a potential issue here with states, as
@@ -69,7 +69,7 @@ make.cache.gse2 <- function(tree, states, unresolved=NULL,
 
   # check unresolved
   if ( !is.null(unresolved) ) {
-      stop("Unresolved clades not yet available for GSE2")
+      stop("Unresolved clades not yet available for GeoSSE")
   }
   if ( inherits(tree, "clade.tree") ) {
     if ( !is.null(unresolved) )
@@ -90,23 +90,23 @@ make.cache.gse2 <- function(tree, states, unresolved=NULL,
   cache$sampling.f <- sampling.f
   cache$unresolved <- unresolved # would need more here
 
-  cache$y <- initial.tip.gse2(cache)
+  cache$y <- initial.tip.geosse(cache)
   cache
 }
 
 ## By the time this hits, unresolved clades and any other non-standard
 ## tips have been removed.  We have an index "tips" (equal to 1:n.tip
-## for plain bisse/gse2) that is the "index" (in phy$edge numbering) of the
+## for plain bisse/geosse) that is the "index" (in phy$edge numbering) of the
 ## tips, and a state vector cache$tip.state, both of the same length.
 ## The length of the terminal branches is cache$len[cache$tips].
 ##
 ## Initial conditions at the tips are given by their tip states:
-## There are four types of initial condition in gse2:
+## There are four types of initial condition in geosse:
 ##   state0: c(f_0, 0,   0,    1-f_0, 1-f_1, 1-f_2)
 ##   state1: c(0,   f_1, 0,    1-f_0, 1-f_1, 1-f_2)
 ##   state2: c(0,   0,   f_2,  1-f_0, 1-f_1, 1-f_2)
 ##   state?: c(f_0, f_1, f_2,  1-f_0, 1-f_1, 1-f_2)
-initial.tip.gse2 <- function(cache) {
+initial.tip.geosse <- function(cache) {
   f <- cache$sampling.f
   y <- list(c(1-f, f[1], 0, 0),
             c(1-f, 0, f[2], 0),
@@ -124,7 +124,7 @@ initial.tip.gse2 <- function(cache) {
 }
 
 ## 6: ll (note: condition.surv=TRUE in bisse)
-ll.gse2 <- function(cache, pars, branches, prior=NULL,
+ll.geosse <- function(cache, pars, branches, prior=NULL,
                      condition.surv=FALSE, root=ROOT.OBS, root.p=NULL,
                      intermediates=FALSE) {
 if ( !is.null(prior) )
@@ -139,12 +139,12 @@ if ( !is.null(prior) )
 
   # would need something here for unresolved
 
-  ll.xxsse.gse2(pars, cache, initial.conditions.gse2, branches,
+  ll.xxsse.geosse(pars, cache, initial.conditions.geosse, branches,
            condition.surv, root, root.p, intermediates)
 }
 
 ## 7: initial.conditions:
-initial.conditions.gse2 <- function(init, pars, t, is.root=FALSE) {
+initial.conditions.geosse <- function(init, pars, t, is.root=FALSE) {
   # E.0, E.1, E.2
   e <- init[[1]][c(1,2,3)]
 
@@ -161,22 +161,22 @@ initial.conditions.gse2 <- function(init, pars, t, is.root=FALSE) {
 }
 
 ## 8: branches
-make.branches.gse2 <- function(safe=FALSE) {
+make.branches.geosse <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
 
-  gse2.ode <- make.ode("gse2_derivs", "diversitreeGSE", "gse2_initmod", 6, safe)
+  geosse.ode <- make.ode("geosse_derivs", "diversitreeGSE", "geosse_initmod", 6, safe)
   branches <- function(y, len, pars, t0)
-    t(gse2.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
+    t(geosse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   
   make.branches(branches, 4:6)
 }
 
 ## 9: branches.unresolved
-branches.unresolved.gse2 <- function(...)
-  stop("Cannot yet use unresolved clades with GSE2")
+branches.unresolved.geosse <- function(...)
+  stop("Cannot yet use unresolved clades with GeoSSE")
 
 ## Additional functions
-stationary.freq.gse2 <- function(pars) {
+stationary.freq.geosse <- function(pars) {
   sA  <- pars[1]
   sB  <- pars[2]
   sAB <- pars[3]
@@ -201,7 +201,7 @@ stationary.freq.gse2 <- function(pars) {
 }
 
 # dunno if this is much better than nothing... should come up with something more sensible
-starting.point.gse2 <- function(tree, q.div=5, yule=FALSE) {
+starting.point.geosse <- function(tree, q.div=5, yule=FALSE) {
   ## RGF: Use qs estimated from Mk2?  Can be slow is the only reason
   ## I have not set this up by default.
   ## find.mle(constrain(make.mk2(phy, phy$tip.state), q10 ~ q01), .1)$par
@@ -211,12 +211,12 @@ starting.point.gse2 <- function(tree, q.div=5, yule=FALSE) {
   else
     p <- rep(c(pars.bd, pars.bd[1] / q.div), each=2)
   p <- c(p[1], p)
-  names(p) <- argnames.gse2(NULL)
+  names(p) <- argnames.geosse(NULL)
   p
 }
 
-# For GSE2, think about what a sensible set of default models would be.
-# all.models.gse2 <- function(f, p, ...) { ... }
+# For GeoSSE, think about what a sensible set of default models would be.
+# all.models.geosse <- function(f, p, ...) { ... }
 
 # check.unresolved would go here
 # mle and anova stuff is covered generically in mle.R
@@ -227,16 +227,16 @@ starting.point.gse2 <- function(tree, q.div=5, yule=FALSE) {
 # generalized with the aid of classes.
 
 # modified from diversitree-branches.R: root.p.xxsse()
-#   allows ROOT.EQUI for gse2
+#   allows ROOT.EQUI for geosse
 #   returned p is always a vector of length k (or NULL)
-root.p.gse2 <- function(vals, pars, root, root.p=NULL) {
+root.p.geosse <- function(vals, pars, root, root.p=NULL) {
   k <- length(vals) / 2
   d.root <- vals[-seq_len(k)]
 
   if ( root == ROOT.FLAT )
     p <- rep(1/k, k)
   else if ( root == ROOT.EQUI )
-    p <- stationary.freq.gse2(pars)
+    p <- stationary.freq.geosse(pars)
   else if ( root == ROOT.OBS )
     p <- d.root / sum(d.root)
   else if ( root == ROOT.GIVEN ) {
@@ -252,7 +252,7 @@ root.p.gse2 <- function(vals, pars, root, root.p=NULL) {
 
 # modified from diversitree-branches.R: root.xxsse()
 #   the only difference is lambda
-root.gse2 <- function(vals, pars, lq, condition.surv, root.p) {
+root.geosse <- function(vals, pars, lq, condition.surv, root.p) {
   logcomp <- sum(lq)
 
   k <- length(vals) / 2
@@ -275,13 +275,13 @@ root.gse2 <- function(vals, pars, lq, condition.surv, root.p) {
 
 # modified from diversitree-branches.R: ll.xxsse()
 #   only difference is names of root function calls (the above functions)
-ll.xxsse.gse2 <- function(pars, cache, initial.conditions,
+ll.xxsse.geosse <- function(pars, cache, initial.conditions,
                      branches, condition.surv, root, root.p,
                      intermediates) {
   ans <- all.branches(pars, cache, initial.conditions, branches)
   vals <- ans$init[[cache$root]]
-  root.p <- root.p.gse2(vals, pars, root, root.p)
-  loglik <- root.gse2(vals, pars, ans$lq, condition.surv, root.p)
+  root.p <- root.p.geosse(vals, pars, root, root.p)
+  loglik <- root.geosse(vals, pars, ans$lq, condition.surv, root.p)
   ans$root.p <- root.p
   cleanup(loglik, pars, intermediates, cache, ans)
 }

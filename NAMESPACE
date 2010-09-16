@@ -12,7 +12,7 @@ export(make.mk2)
 export(make.mkn)
 export(make.musse)
 export(make.yule)
-export(make.gse2)
+export(make.geosse)
 
 ## 2. print:
 S3method(print, bd)
@@ -24,7 +24,7 @@ S3method(print, bm)
 S3method(print, mkn)
 S3method(print, musse)
 S3method(print, yule)
-S3method(print, gse2)
+S3method(print, geosse)
 
 S3method(print, constrained)
 
@@ -42,7 +42,7 @@ S3method(argnames, mk2)
 S3method(argnames, mkn)
 S3method(argnames, musse)
 S3method(argnames, yule)
-S3method(argnames, gse2)
+S3method(argnames, geosse)
 
 S3method("argnames<-", bd)
 S3method("argnames<-", bd.split)
@@ -53,7 +53,7 @@ S3method("argnames<-", bm)
 S3method("argnames<-", mkn) # is also the mk2 method
 S3method("argnames<-", musse)
 S3method("argnames<-", yule)
-S3method("argnames<-", gse2)
+S3method("argnames<-", geosse)
 
 ## Extra:
 S3method(argnames, constrained)
@@ -71,7 +71,7 @@ S3method(find.mle, default)
 S3method(find.mle, mkn)
 S3method(find.mle, musse)
 S3method(find.mle, yule)
-S3method(find.mle, gse2)
+S3method(find.mle, geosse)
 
 ## Other method support:
 S3method(anova, fit.mle)
@@ -99,7 +99,7 @@ export(big.brother)
 export(starting.point.bisse)
 export(starting.point.bd)
 export(starting.point.musse)
-export(starting.point.gse2)
+export(starting.point.geosse)
 export(profiles.plot)
 export(make.prior.exponential)
 export(prune)

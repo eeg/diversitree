@@ -6,13 +6,13 @@
 ###     marginal: consider each node separately, rather than using a joint set 
 ###           of node states
 
-### Taken from diversitreeEEG, and added a gse2 method for reconstructing
+### Taken from diversitreeEEG, and added a geosse method for reconstructing
 ###   geographic state.
 
 ### Returns a data.frame with node number and probabilities of being in 
 ###   each possible state.
 
-reconstruct.gse2 <- function(tree, states, pars, ...)
+reconstruct.geosse <- function(tree, states, pars, ...)
 {
     if ( any(pars < 0) || any(!is.finite(pars)) )
         stop("Invalid parameters.")
@@ -33,7 +33,7 @@ reconstruct.gse2 <- function(tree, states, pars, ...)
         for (s in c(0, 1, 2))          # fix node to state 0, then 1, then 2
         {
             node.fixing[node-ntips] <- s
-            f <- make.gse2(tree, states, node.fixing=node.fixing)
+            f <- make.geosse(tree, states, node.fixing=node.fixing)
             loglike <- f(pars = pars, ...)
             likes[s+1] <- exp(loglike)
         }

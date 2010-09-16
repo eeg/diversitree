@@ -1,26 +1,26 @@
 /*
- * The GSE equations, implemented in C
+ * The GeoSSE equations, implemented in C
  *
  * Usage outside of the package:
- *    $ gcc -c -I/usr/share/R/include -fPIC gse2-eqs.c
- *    $ gcc -shared -o gse2-eqs.so gse2-eqs.o
- *    creates gse2-eqs.so
- *    > dyn.load('gse2-eqs.so')   # load in R
+ *    $ gcc -c -I/usr/share/R/include -fPIC geosse-eqs.c
+ *    $ gcc -shared -o geosse-eqs.so geosse-eqs.o
+ *    creates geosse-eqs.so
+ *    > dyn.load('geosse-eqs.so')   # load in R
  */
 
 #include <R.h>
 
 static double parms[7];
 
-#define sA parms[0]     /* speciation in region A */
-#define sB parms[1]     /* speciation in region B */
-#define sAB parms[2]    /* allopatric speciation */
-#define xA parms[3]     /* extinction in region A */
-#define xB parms[4]     /* extinction in region B */
+#define sA parms[0]     /* speciation within region A */
+#define sB parms[1]     /* speciation within region B */
+#define sAB parms[2]    /* between-region speciation */
+#define xA parms[3]     /* extinction from region A */
+#define xB parms[4]     /* extinction from region B */
 #define dA parms[5]     /* dispersal from A to B */
 #define dB parms[6]     /* dispersal from B to A */
 
-void gse2_initmod(void (* odeparms)(int *, double *))
+void geosse_initmod(void (* odeparms)(int *, double *))
 {
 	int N = 7;
 	odeparms(&N, parms);
@@ -32,7 +32,7 @@ void gse2_initmod(void (* odeparms)(int *, double *))
  * 3 = region B endemic
  */
 
-void gse2_derivs(int *neq, double *t, double *y, double *ydot, double *yout,
+void geosse_derivs(int *neq, double *t, double *y, double *ydot, double *yout,
                  int *ip)
 {
 	double E_1 = y[0];

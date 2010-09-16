@@ -7,7 +7,7 @@ tree <- read.tree(text="((((0:0.461876,(1:0.307717,(2:0.231825,3:0.231825):0.075
 states <- c(0, 1, 0, 2, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0)
 names(states) <- c("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14")
 
-starting.point.gse2(tree)
+starting.point.geosse(tree)
 #        sA        sB       sAB        xA        xB        dA        dB 
 # 1.5788510 1.5788510 1.5788510 0.0000000 0.0000000 0.3157702 0.3157702 
 # (with possible warning message; gone in 0.4-5)
@@ -17,7 +17,7 @@ starting.point.gse2(tree)
 # 0.5-2 now
 
 pars <- c(0.9, 0.8, 0.1, 0.2, 0.3, 0.5, 0.6)
-lnL.7par <- make.gse2(tree, states)
+lnL.7par <- make.geosse(tree, states)
 names(pars) <- argnames(lnL.7par)
 lnL.7par(pars)                    # -23.71574 (-23.39109)
 lnL.7par(pars, condition.surv=T)  # -24.10259
@@ -110,3 +110,8 @@ mcmc(lnL.7par, pars, nsteps=3, lower=0, upper=3, w=rep(3/5, 7), prior=make.prior
 # 2: {1.3404, 1.2697, 0.8503, 0.6557, 0.5654, 1.1507, 1.5016} -> -29.70205
 # 3: {1.1591, 0.5990, 0.8141, 0.7422, 0.8274, 0.9435, 2.3320} -> -29.25331
 
+set.seed(1)
+mcmc(constrain(lnL.7par, dA ~ dB, sAB ~ 0), pars[-c(3,7)], nsteps=3, lower=0, upper=3, w=rep(3/5, 5), prior=make.prior.exponential(1))
+# 1: {1.7079, 0.5958, 0.9004, 0.1992, 1.0660} -> -25.93986
+# 2: {1.4176, 0.4126, 1.0722, 0.5315, 2.1264} -> -27.70291
+# 3: {2.0392, 0.4766, 0.6001, 0.1083, 1.9912} -> -25.94858
