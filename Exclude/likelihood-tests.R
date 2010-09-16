@@ -14,6 +14,7 @@ starting.point.gse2(tree)
 
 # 0.4-3 results in parentheses; default is condition.surv=T
 # 0.4-5 shown now; condition.surv=F, lambda at root join
+# 0.5-2 now
 
 pars <- c(0.9, 0.8, 0.1, 0.2, 0.3, 0.5, 0.6)
 lnL.7par <- make.gse2(tree, states)
@@ -36,6 +37,15 @@ lnL <- constrain(lnL.7par, dB ~ dA, sAB ~ 0)
 lnL(pars[-c(3,7)])                # -23.763 (-23.44108)
 
 find.mle(lnL.7par, pars, method="subplex")
+# (differs only for the tiny values)
+# $par
+#           sA           sB          sAB           xA           xB           dA 
+# 1.592062e+00 4.066316e-01 7.031295e-10 8.239029e-07 3.233252e-09 1.262807e+00 
+#           dB 
+# 1.252328e+00 
+# $lnLik
+# [1] -18.77671
+### 0.4.5
 # $par
 #           sA           sB          sAB           xA           xB           dA 
 # 1.592060e+00 4.066320e-01 5.602806e-10 3.026119e-07 7.266436e-07 1.262808e+00 
@@ -52,7 +62,7 @@ find.mle(lnL.7par, pars, method="subplex")
 # $lnLik
 # [1] -18.70781
 
-find.mle(constrain(lnL.7par, dA ~ dB), pars[-6], method="subplex")
+find.mle(constrain(lnL.7par, dA ~ dB), pars[-6]) # method="subplex" now default
 # $par
 #           sA           sB          sAB           xA           xB           dB 
 # 1.591789e+00 4.073864e-01 6.526636e-09 2.682779e-06 1.888036e-09 1.262040e+00 
@@ -65,7 +75,7 @@ find.mle(constrain(lnL.7par, dA ~ dB), pars[-6], method="subplex")
 # $lnLik
 # [1] -18.84392
 
-find.mle(constrain(lnL.7par, dA ~ dB, sAB ~ 0), pars[-c(3,7)], method="subplex")
+find.mle(constrain(lnL.7par, dA ~ dB, sAB ~ 0), pars[-c(3,7)])
 # $par
 #           sA           sB           xA           xB           dA 
 # 1.591711e+00 4.073796e-01 1.532276e-08 1.519441e-08 1.262004e+00 

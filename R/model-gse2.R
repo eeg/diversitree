@@ -108,10 +108,10 @@ make.cache.gse2 <- function(tree, states, unresolved=NULL,
 ##   state?: c(f_0, f_1, f_2,  1-f_0, 1-f_1, 1-f_2)
 initial.tip.gse2 <- function(cache) {
   f <- cache$sampling.f
-  y <- rbind(c(1-f, f[1], 0, 0),
-             c(1-f, 0, f[2], 0),
-             c(1-f, 0, 0, f[3]),
-             c(1-f, f))
+  y <- list(c(1-f, f[1], 0, 0),
+            c(1-f, 0, f[2], 0),
+            c(1-f, 0, 0, f[3]),
+            c(1-f, f))
   y.i <- cache$tip.state + 1
   y.i[is.na(y.i)] <- 4
 
@@ -139,22 +139,22 @@ if ( !is.null(prior) )
 
   # would need something here for unresolved
 
-  ll.gse2(pars, cache, initial.conditions.gse2, branches,
+  ll.xxsse.gse2(pars, cache, initial.conditions.gse2, branches,
            condition.surv, root, root.p, intermediates)
 }
 
 ## 7: initial.conditions:
 initial.conditions.gse2 <- function(init, pars, t, is.root=FALSE) {
   # E.0, E.1, E.2
-  e <- init[1, c(1,2,3)]
+  e <- init[[1]][c(1,2,3)]
 
   # D.1, D.2  (Eq. 6bc)
-  d12 <- init[1, c(5,6)] * init[2, c(5,6)] * pars[c(1,2)]
+  d12 <- init[[1]][c(5,6)] * init[[2]][c(5,6)] * pars[c(1,2)]
 
   # D.0 (Eq. 6a)
-  d0 <- 0.5 * sum(init[1, c(4,5)] * init[2, c(5,4)] * pars[1] + 
-                  init[1, c(4,6)] * init[2, c(6,4)] * pars[2] +
-                  init[1, c(5,6)] * init[2, c(6,5)] * pars[3])
+  d0 <- 0.5 * sum(init[[1]][c(4,5)] * init[[2]][c(5,4)] * pars[1] + 
+                  init[[1]][c(4,6)] * init[[2]][c(6,4)] * pars[2] +
+                  init[[1]][c(5,6)] * init[[2]][c(6,5)] * pars[3])
   d <- c(d0, d12)
 
   c(e, d)
@@ -275,7 +275,7 @@ root.gse2 <- function(vals, pars, lq, condition.surv, root.p) {
 
 # modified from diversitree-branches.R: ll.xxsse()
 #   only difference is names of root function calls (the above functions)
-ll.gse2 <- function(pars, cache, initial.conditions,
+ll.xxsse.gse2 <- function(pars, cache, initial.conditions,
                      branches, condition.surv, root, root.p,
                      intermediates) {
   ans <- all.branches(pars, cache, initial.conditions, branches)
