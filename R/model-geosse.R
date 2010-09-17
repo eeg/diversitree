@@ -258,13 +258,15 @@ root.geosse <- function(vals, pars, lq, condition.surv, root.p) {
   k <- length(vals) / 2
   i <- seq_len(k)
 
-  # note: AB species are subject to all three speciation rates
-  lambda <- c(sum(pars[1:3]), pars[1:2])
   e.root <- vals[i]
   d.root <- vals[-i]
 
   if ( condition.surv )
+  {
+    # AB species are subject to all three speciation rates
+    lambda <- c(sum(pars[1:3]), pars[1:2])
     d.root <- d.root / (lambda * (1-e.root)^2)
+  }
 
   if ( is.null(root.p) ) # ROOT.BOTH
     loglik <- log(d.root) + logcomp
