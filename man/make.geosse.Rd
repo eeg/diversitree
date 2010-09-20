@@ -99,7 +99,7 @@ starting.point.geosse(tree, q.div=5, yule=FALSE)
 \seealso{
   \code{\link{constrain}} for making submodels, \code{\link{find.mle}}
   for ML parameter estimation, \code{\link{mcmc}} for MCMC integration,
-  \code{make.bisse} for further relevant examples..
+  \code{\link{make.bisse}} for further relevant examples..
 
   The help page for \code{\link{find.mle}} has further examples of ML
   searches on full and constrained BiSSE models.  Things work similarly
@@ -109,7 +109,7 @@ starting.point.geosse(tree, q.div=5, yule=FALSE)
 \examples{
 ## Tree simulation under GeoSSE is currently only available through the
 ## SimTreeSDD program (\url{http://tigger.uic.edu/~eeg/code/code.html}).
-## Here is an example, created with the values in \code{pars}.
+## Here is an example, created with the values in "pars".
 
 pars <- c(1.5, 0.5, 1.0, 0.7, 0.7, 2.5, 0.5)
 data("geosse")
