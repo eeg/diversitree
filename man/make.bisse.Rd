@@ -12,7 +12,7 @@
 
 \usage{
 make.bisse(tree, states, unresolved=NULL, sampling.f=NULL, nt.extra=10,
-           safe=FALSE)
+           safe=FALSE, strict=TRUE)
 starting.point.bisse(tree, q.div=5, yule=FALSE)
 }
 
@@ -34,6 +34,11 @@ starting.point.bisse(tree, q.div=5, yule=FALSE)
     (this is in addition to the largest observed clade).}
   \item{safe}{Use a safer, slower, integrator?  Leave this alone unless
     crashes are happening.}
+  \item{strict}{The \code{states} vector is always checked to make sure
+    that the values are 0 and 1 only.  If \code{strict} is \code{TRUE}
+    (the default), then the additional check is made that \emph{every}
+    state is present.  The likelihood models tend to be poorly behaved
+    where states are missing.}
   \item{q.div}{Ratio of diversification rate to character change rate.
     Eventually this will be changed to allow for Mk2 to be used for
     estimating q parameters.}
@@ -55,8 +60,6 @@ starting.point.bisse(tree, q.div=5, yule=FALSE)
     \item \code{pars} A vector of six parameters, in the order
     \code{lambda0}, \code{lambda1}, \code{mu0}, \code{mu1},
     \code{q01}, \code{q10}.
-    \item \code{prior}: a valid prior.  See \code{\link{make.prior}} for
-    more information.
     \item \code{condition.surv} (logical): should the likelihood
     calculation condition on survival of two lineages and the speciation
     event subtending them?  This is done by default, following Nee et
@@ -88,7 +91,6 @@ starting.point.bisse(tree, q.div=5, yule=FALSE)
       \item \code{cache}: Cached tree traversal information.
       \item \code{intermediates}: Mostly branch end information.
       \item \code{vals}: Root \eqn{D} values.
-      \item \code{logComp}: Underflow compensation information.
     }
     At this point, you will have to poke about in the source for more
     information on these.
@@ -98,7 +100,7 @@ starting.point.bisse(tree, q.div=5, yule=FALSE)
   start from, based on the character-independent birth-death model.  You
   can probably do better than this; see the vignette, for example.
   \code{bisse.starting.point} is the same code, but deprecated in favour
-  of \code{startng.point.bisse} - it will be removed in a future
+  of \code{starting.point.bisse} - it will be removed in a future
   version.
 }
 
@@ -139,7 +141,7 @@ pars <- c(0.1, 0.2, 0.03, 0.03, 0.01, 0.01)
 set.seed(4)
 phy <- tree.bisse(pars, max.t=30, x0=0)
 
-## Here is the 203 species tree with the true character history coded.
+## Here is the 52 species tree with the true character history coded.
 ## Red is state '1', which has twice the speciation rate of black (state
 ## '0').
 h <- history.from.sim.discrete(phy, 0:1)
@@ -242,12 +244,12 @@ lik.bisse2.bd(2*pars) - lik.bd2(2*pars)
 set.seed(1)
 unresolved <- data.frame(tip.label=I(sample(phy$tip.label, 5)),
                          Nc=sample(2:10, 5), n0=0, n1=0)
-unresolved.mk2 <- structure(unresolved$Nc, names=unresolved$tip.label)
+unresolved.bd <- structure(unresolved$Nc, names=unresolved$tip.label)
 lik.bisse3 <- make.bisse(phy, phy$tip.state, unresolved)
 lik.bisse3.bd <- constrain(lik.bisse3,
                            lambda1 ~ lambda0, mu1 ~ mu0,
                            q01 ~ .01, q10 ~ .01)
-lik.bd3 <- make.bd(phy, unresolved=unresolved.mk2)
+lik.bd3 <- make.bd(phy, unresolved=unresolved.bd)
 
 ## Difference of -167.1523
 lik.bisse3.bd(pars) - lik.bd3(pars)
