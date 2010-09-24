@@ -1,6 +1,7 @@
 ### Check my node.fixing-based BiSSE reconstructions with those Rich
 ### implemented.
-### v0.4-4, Feb 19, 2010
+### v0.5-2, Sept 23, 2010
+# FIXME: answers are different now, after v0.4-4
 
 source("/home/emma/src/miscR/ttn.R")
 mycol <- c(rgb(0.832, 0.367, 0), rgb(0, 0.445, 0.695))  # orange, blue
