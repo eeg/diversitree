@@ -10,23 +10,26 @@
 ##   8. branches
 
 ## 1: make
-make.musse <- function(tree, states, k, sampling.f=NULL, strict=TRUE) {
+make.musse <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
+                       safe=FALSE) {
   cache <- make.cache.musse(tree, states, k, sampling.f, strict)
-  branches <- make.branches.musse(k)
+  branches <- make.branches.musse(k, safe)
 
-  ll.musse <- function(cache, pars, condition.surv=TRUE,
-                       root=ROOT.OBS, root.p=NULL, intermediates=FALSE) {
+  ll.musse <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
+                       root.p=NULL, intermediates=FALSE) {
     if ( length(pars) != k*(k+1) )
       stop(sprintf("Invalid length parameters (expected %d)",
                    k*(k+1)))
     if ( any(!is.finite(pars)) || any(pars < 0) )
       return(-Inf)
+    if ( !is.null(root.p) &&  root != ROOT.GIVEN )
+      warning("Ignoring specified root state")
 
     ll.xxsse(pars, cache, initial.conditions.musse, branches,
              condition.surv, root, root.p, intermediates)
   }
 
-  ll <- function(pars, ...) ll.musse(cache, pars, ...)
+  ll <- function(pars, ...) ll.musse(pars, ...)
   class(ll) <- c("musse", "function")
   attr(ll, "k") <- k
   ll
@@ -51,7 +54,8 @@ argnames.musse <- function(x, k=attr(x, "k"), ...) {
   }
 }
 `argnames<-.musse` <- function(x, value) {
-  k <- environment(x)$cache$k  
+  k <- attr(x, "k")
+  ## k <- environment(x)$cache$k  
   if ( length(value) != k*(k+1) )
     stop("Invalid names length")
   attr(x, "argnames") <- value
@@ -64,6 +68,8 @@ find.mle.musse <- function(func, x.init, method, fail.value=NA, ...) {
     method <- "subplex"
   NextMethod("find.mle", method=method, class.append="fit.mle.musse")
 }
+
+mcmc.musse <- mcmc.lowerzero
 
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip)
@@ -115,7 +121,7 @@ initial.conditions.musse <- function(init, pars, t, is.root=FALSE) {
 }
 
 ## 8: branches (separate for mk2 and mkn)
-make.branches.musse <- function(k) {
+make.branches.musse <- function(k, safe=FALSE) {
   RTOL <- ATOL <- 1e-8
   eps <- 0
 
