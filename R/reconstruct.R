@@ -1,5 +1,5 @@
 # EEG: This is my old reconstruction code, using node.fixing.
-# TODO: If node.fixing is passed in, respect that (just fix on top of it and unfix afterwards?).  Also, record node labels if they exist.
+# TODO: If node.fixing is passed in, respect that (just fix on top of it and unfix afterwards?).  Also, record node labels if they exist.  Possible to allow constrained models (pass node.fixing to lnL, not to make.bisse)?
 
 ### Reconstruct node states using the "global, marginal" method.
 ### This is not necessarily the most appropriate method for many questions 
@@ -12,7 +12,7 @@
 
 ### Returns a data.frame with node number and probabilities of being in 
 ###   states 0 or 1.
-reconstruct.bisse <- function(tree, states, pars, ...)
+reconstruct.bisse <- function(tree, states, pars, node.fixing=NULL, ...)
 {
     if ( any(pars < 0) || any(!is.finite(pars)) )
         stop("Invalid parameters.")
@@ -25,18 +25,39 @@ reconstruct.bisse <- function(tree, states, pars, ...)
     ans <- data.frame(num = seq(nnodes) + ntips, p0 = rep(NA, nnodes), 
                       p1 = rep(NA, nnodes))
 
+    # save the original node.fixing
+    if (is.null(node.fixing))
+    {
+        node.fixing.orig <- rep(NA, nnodes)
+    } else
+    {
+        node.fixing.orig <- node.fixing
+    }
+
     # for each internal node
     for (node in seq(ntips + 1, ntotal))
     {
-        node.fixing <- rep(NA, nnodes)
-        likes <- rep(NA, 2)            # will hold (not-log-) likelihoods
-        for (s in c(0, 1))             # fix node to state 0, then 1
+        this.node.fixed <- node.fixing.orig[node-ntips]
+
+        # if this node is not fixed
+        if (is.na(this.node.fixed))
         {
-            node.fixing[node-ntips] <- s
-            f <- make.bisse(tree, states, node.fixing = node.fixing)
-            loglike <- f(pars = pars, ...)
-            likes[s+1] <- exp(loglike)
+            likes <- rep(NA, 2)            # will hold (not-log-) likelihoods
+            for (s in c(0, 1))             # fix node to state 0, then 1
+            {
+                node.fixing <- node.fixing.orig
+                node.fixing[node-ntips] <- s
+                f <- make.bisse(tree, states, node.fixing = node.fixing)
+                loglike <- f(pars = pars, ...)
+                likes[s+1] <- exp(loglike)
+            }
+        } else
+        # if this node is fixed
+        {
+            likes <- rep(0, 2)
+            likes[this.node.fixed+1] <- 1
         }
+
         ans[node-ntips, -1] <- likes / sum(likes)
     }
     
