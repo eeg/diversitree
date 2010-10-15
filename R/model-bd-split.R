@@ -33,7 +33,7 @@ make.bd.split <- function(tree, nodes, split.t, sampling.f=NULL,
     sum(res)
   }
 
-  class(ll) <- c("bd.split", "function")
+  class(ll) <- c("bd.split", "bd", "function")
   attr(ll, "n.part") <- cache$n.part
   
   ll
@@ -67,14 +67,7 @@ argnames.bd.split <- function(x, ...) {
   x  
 }
 
-## 4: find.mle
-find.mle.bd.split <- function(func, x.init, method, fail.value=NA,
-                              ...) {
-  if ( missing(method) )
-    method <- "subplex"
-  NextMethod("find.mle", method=method,
-             class.append="fit.mle.bd.split")
-}
+## 4: find.mle: from bd.
 
 ## 5: make.cache
 make.cache.bd.split <- function(tree, nodes, split.t=Inf,

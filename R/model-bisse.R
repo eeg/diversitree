@@ -11,7 +11,7 @@
 
 ## 1: make
 make.bisse <- function(tree, states, unresolved=NULL, sampling.f=NULL,
-                       nt.extra=10, safe=FALSE, strict=TRUE) {
+                       nt.extra=10, strict=TRUE, safe=FALSE) {
   cache <- make.cache.bisse(tree, states, unresolved=unresolved,
                             sampling.f=sampling.f, nt.extra=nt.extra,
                             strict=strict)
@@ -50,6 +50,8 @@ find.mle.bisse <- function(func, x.init, method,
   NextMethod("find.mle", method=method, class.append="fit.mle.bisse")
 }
 
+mcmc.bisse <- mcmc.lowerzero
+
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
 make.cache.bisse <- function(tree, states, unresolved=NULL,
@@ -68,7 +70,8 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
   if ( inherits(tree, "clade.tree") ) {
     if ( !is.null(unresolved) )
       stop("'unresolved' cannot be specified where 'tree' is a clade.tree")
-    unresolved <- make.unresolved(tree$clades, states)
+    unresolved <- make.unresolved.bisse(tree$clades, states)
+    states <- states[tree$tip.label]
   }
 
   ## Check 'sampling.f'
@@ -92,7 +95,11 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
     cache$tips <- cache$tips[-unresolved$i]
     cache$tip.state <- cache$tip.state[-unresolved$i]
   }
-  cache$y <- initial.tip.bisse(cache)
+
+  ## This avoids a warning in the case where all tips are unresolved.
+  if ( length(cache$tips) > 0 )
+    cache$y <- initial.tip.bisse(cache)
+
   cache
 }
 
@@ -165,7 +172,8 @@ initial.conditions.bisse <- function(init, pars, t, is.root=FALSE)
 ## 8: branches
 make.branches.bisse <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
-  bisse.ode <- make.ode("derivs", "diversitree", "initmod", 4, safe)
+  bisse.ode <- make.ode("derivs_bisse", "diversitree",
+                        "initmod_bisse", 4, safe)
   branches <- function(y, len, pars, t0)
     t(bisse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   
