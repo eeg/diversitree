@@ -57,7 +57,7 @@ make.branches.bd.t <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
   e <- new.env()
 
-  bd.t <- make.ode("derivs_bd_t", "diversitree", "initmod_bd_t",
+  bd.t <- make.ode("derivs_bd_t", "diversitreeGSE", "initmod_bd_t",
                        2, safe)
   branches <- function(y, len, pars, t0)
     t(bd.t(y, c(t0, t0+len), list(pars, e), rtol=RTOL,

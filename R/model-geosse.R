@@ -8,11 +8,10 @@
 ##   6. ll
 ##   7. initial.conditions
 ##   8. branches
-##   (no longer branches.unresolved)
 
 ## 1: make
 make.geosse <- function(tree, states, unresolved=NULL, sampling.f=NULL,
-                       nt.extra=10, safe=FALSE, strict=TRUE) {
+                       nt.extra=10, strict=TRUE, safe=FALSE) {
   cache <- make.cache.geosse(tree, states, unresolved=unresolved,
                             sampling.f=sampling.f, nt.extra=nt.extra,
                             strict=strict)
@@ -51,6 +50,8 @@ find.mle.geosse <- function(func, x.init, method,
   NextMethod("find.mle", method=method, class.append="fit.mle.geosse")
 }
 
+mcmc.geosse <- mcmc.lowerzero
+
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
 # almost identical to make.cache.bisse(), but uses three states
@@ -68,13 +69,8 @@ make.cache.geosse <- function(tree, states, unresolved=NULL,
   states <- check.states(tree, states, strict=strict, strict.vals=0:2)
 
   # check unresolved
-  if ( !is.null(unresolved) ) {
+  if ( !is.null(unresolved) | inherits(tree, "clade.tree") ) {
       stop("Unresolved clades not yet available for GeoSSE")
-  }
-  if ( inherits(tree, "clade.tree") ) {
-    if ( !is.null(unresolved) )
-      stop("'unresolved' cannot be specified where 'tree' is a clade.tree")
-    #unresolved <- make.unresolved(tree$clades, states)
   }
 
   ## Check 'sampling.f'
@@ -83,14 +79,15 @@ make.cache.geosse <- function(tree, states, unresolved=NULL,
   else
     sampling.f <- check.sampling.f(sampling.f, 3)
 
-  # would also need: unresolved <- check.unresolved(cache, unresolved, nt.extra)
-
   cache <- make.cache(tree)
   cache$tip.state  <- states
   cache$sampling.f <- sampling.f
-  cache$unresolved <- unresolved # would need more here
+  #cache$unresolved <- unresolved # would need more here
 
-  cache$y <- initial.tip.geosse(cache)
+## This avoids a warning in the case where all tips are unresolved.
+  if ( length(cache$tips) > 0 )
+    cache$y <- initial.tip.geosse(cache)
+
   cache
 }
 
@@ -163,8 +160,7 @@ initial.conditions.geosse <- function(init, pars, t, is.root=FALSE) {
 ## 8: branches
 make.branches.geosse <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
-
-  geosse.ode <- make.ode("geosse_derivs", "diversitreeGSE", "geosse_initmod", 6, safe)
+  geosse.ode <- make.ode("derivs_geosse", "diversitreeGSE", "initmod_geosse", 6, safe)
   branches <- function(y, len, pars, t0)
     t(geosse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   
@@ -224,7 +220,8 @@ starting.point.geosse <- function(tree, q.div=5, yule=FALSE) {
 # NOTE:
 # Functions below are taken from diversitree-branches.R.  Internal
 # modifications were necessary, but the parent functions could likely be
-# generalized with the aid of classes.
+# generalized with the aid of classes.  At the moment, though, separate 
+# seems better than integrated.
 
 # modified from diversitree-branches.R: root.p.xxsse()
 #   allows ROOT.EQUI for geosse

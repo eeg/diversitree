@@ -124,7 +124,7 @@ make.branches.musse.t <- function(k, safe=FALSE) {
   RTOL <- ATOL <- 1e-8
   e <- new.env()
   
-  musse.t.ode <- make.ode("derivs_musse_t", "diversitree",
+  musse.t.ode <- make.ode("derivs_musse_t", "diversitreeGSE",
                           "initmod_musse_t", 2*k, safe)
   branches <- function(y, len, pars, t0)
     t(musse.t.ode(y, c(t0, t0+len), list(pars, e),

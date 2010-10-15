@@ -14,7 +14,8 @@ starting.point.geosse(tree)
 
 # 0.4-3 results in parentheses; default is condition.surv=T
 # 0.4-5 shown now; condition.surv=F, lambda at root join
-# 0.5-2 now
+# 0.5-2 next
+# 0.5-3b now
 
 pars <- c(0.9, 0.8, 0.1, 0.2, 0.3, 0.5, 0.6)
 lnL.7par <- make.geosse(tree, states)
@@ -109,6 +110,12 @@ mcmc(lnL.7par, pars, nsteps=3, lower=0, upper=3, w=rep(3/5, 7), prior=make.prior
 # 1: {1.7079, 0.5958, 0.6397, 0.3059, 0.1992, 0.9057, 1.1472} -> -26.45726
 # 2: {1.3404, 1.2697, 0.8503, 0.6557, 0.5654, 1.1507, 1.5016} -> -29.70205
 # 3: {1.1591, 0.5990, 0.8141, 0.7422, 0.8274, 0.9435, 2.3320} -> -29.25331
+
+set.seed(1)
+mcmc(lnL.7par, pars, nsteps=3, upper=3, w=rep(3/5, 7), prior=make.prior.exponential(1))
+1: {1.7079, 0.8226, 0.0854, 0.3320, 0.3547, 0.8980, 1.3405} -> -25.91188
+2: {1.8432, 0.4183, 0.2167, 0.1520, 0.5122, 0.9473, 0.4756} -> -25.02481
+3: {1.8248, 0.7531, 0.1291, 0.4015, 0.4574, 1.0977, 1.4606} -> -26.40207
 
 set.seed(1)
 mcmc(constrain(lnL.7par, dA ~ dB, sAB ~ 0), pars[-c(3,7)], nsteps=3, lower=0, upper=3, w=rep(3/5, 5), prior=make.prior.exponential(1))

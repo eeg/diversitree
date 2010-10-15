@@ -45,7 +45,7 @@ make.branches.bisse.t <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
   e <- new.env()
   
-  bisse.t.ode <- make.ode("derivs_bisse_t", "diversitree",
+  bisse.t.ode <- make.ode("derivs_bisse_t", "diversitreeGSE",
                           "initmod_bisse_t", 4, safe)
   branches <- function(y, len, pars, t0)
     t(bisse.t.ode(y, c(t0, t0+len), list(pars, e),
