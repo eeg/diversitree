@@ -130,7 +130,7 @@ lik(pars) # -297.6749
 p <- starting.point.geosse(phy)
 
 ## Start an ML search from this point (takes several seconds to run).
-fit <- find.mle(lik, p)    # default method is "subplex"
+fit <- find.mle(lik, p, method="subplex")
 logLik(fit) # -295.0275
 
 ## Compare with sim values.

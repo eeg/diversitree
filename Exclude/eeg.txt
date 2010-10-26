@@ -1,3 +1,30 @@
+>>> from Rich, for geosse vignette
+> When you are writing the vignette, I would recommend using  
+> cacheSweave; I started using this in the diversitree one.  It's great  
+> for long running things (ML searches on large trees, or MCMC  
+> simulations).  Basically, add this towards the top of your file:
+> 
+> \SweaveOpts{prefix.string=cache/diversitree-tutorial,eps=FALSE}
+> <<results=hide,echo=FALSE>>=
+> dir.create("cache", FALSE)
+> if ( require(cacheSweave) )
+>    setCacheDir("cache")
+> @
+> 
+> then, for long-running code blocks, add a cache=TRUE option:
+> <<cache=TRUE>>
+> # long running code here
+> @
+> 
+> the first time you run the code it will cache all objects created in  
+> the cache directory.  Subsequent runs will retrieve the objects from  
+> there, rather than rerunning.  The full diversitree tutorial takes 27  
+> hours to run from scratch on my computer, but only 28s to rerun.
+ 
+
+
+
+
 CHANGES (from Rich's diversitree, v0.5)
 -------
 

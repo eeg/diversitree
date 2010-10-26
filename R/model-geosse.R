@@ -99,12 +99,14 @@ make.cache.geosse <- function(tree, states, unresolved=NULL,
 ##
 ## Initial conditions at the tips are given by their tip states:
 ## There are four types of initial condition in geosse:
+##             D0   D1   D2    E0     E1     E2
 ##   state0: c(f_0, 0,   0,    1-f_0, 1-f_1, 1-f_2)
 ##   state1: c(0,   f_1, 0,    1-f_0, 1-f_1, 1-f_2)
 ##   state2: c(0,   0,   f_2,  1-f_0, 1-f_1, 1-f_2)
 ##   state?: c(f_0, f_1, f_2,  1-f_0, 1-f_1, 1-f_2)
 initial.tip.geosse <- function(cache) {
   f <- cache$sampling.f
+  # note: y is ordered E, D
   y <- list(c(1-f, f[1], 0, 0),
             c(1-f, 0, f[2], 0),
             c(1-f, 0, 0, f[3]),
