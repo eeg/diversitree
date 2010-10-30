@@ -243,7 +243,8 @@ lnL.multi <- function(pars, ...)
 
     if (is.na(total.lnL) || !is.finite(total.lnL)) return(-Inf) else return(total.lnL)
 }
-class(lnL.multi) <- "geosse"
+class(lnL.multi) <- class(lnL.each[[1]])
+attributes(lnL.multi) <- attributes(lnL.each[[1]])
 @
 
 Now {\tt lnL.multi()} can be used like any other likelihood function, for example
@@ -260,3 +261,39 @@ or in {\tt find.mle()} or {\tt mcmc()}.
 
 
 \end{document}
+
+
+<<>>=
+combine <- function(liks) {
+  if ( length(unique(lapply(liks, class))) != 1 )
+    stop("All functions must have the same class")
+  ret <- function(pars, ...) {
+    ans <- lapply(liks, function(f) f(pars, ...))
+    sum(unlist(ans))
+  }
+  class(ret) <- c("combined", class(liks[[1]]))
+  ret
+}
+
+chaparral.trees <- list(phy.cea, phy.arc)
+chaparral.states <- list(chars.cea, chars.arc)
+chaparral.samp <- list(c(0.913, 0.941, 0.875), c(0.674, 0.533, 0.75))
+
+lnL.each <- list()
+for (i in seq_along(chaparral.trees) )
+  lnL.each[[i]] <- make.geosse(chaparral.trees[[i]],
+                               chaparral.states[[i]],
+                               sampling.f = chaparral.samp[[i]])
+
+lik.multi <- constrain(combine(lnL.each), sAB ~ 0)
+
+lik.multi(chaparral.params)
+find.mle(lik.multi, chaparral.params)
+@
+
+
+
+          sA           sB           xA           xB           dA           dB 
+1.332638e-01 3.681085e-02 2.644015e-02 1.010544e-01 3.973645e-01 1.280796e-08 
+[1] -382.0963
+
