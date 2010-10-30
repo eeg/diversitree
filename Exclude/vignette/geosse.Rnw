@@ -1,0 +1,262 @@
+\documentclass{article}
+
+% \VignettePackage{diversitree}
+% \VignetteIndexEntry{diversitree: GeoSSE}
+% \VignetteKeyword{evolution}
+
+\usepackage{graphicx}
+
+\usepackage{natbib}
+\bibpunct{(}{)}{;}{a}{}{,}    % no comma between author and year
+
+\usepackage{color}
+\definecolor{darkblue}{RGB}{32,32,121}
+\usepackage[colorlinks=true,linkcolor=darkblue,citecolor=darkblue,urlcolor=darkblue]{hyperref}
+
+\usepackage[utf8]{inputenc} % for UTF-8/single quotes from sQuote()
+
+\usepackage{fullpage}
+
+\usepackage{prettyref}
+\newrefformat{fig}{Fig.~\ref{#1}}
+\newrefformat{eq}{Eq.~\ref{#1}}
+\newrefformat{sec}{Sec.~\ref{#1}}
+
+% cache parts that are slow to run
+\SweaveOpts{prefix.string=cache/geosse,eps=FALSE}
+<<results=hide,echo=FALSE>>=
+dir.create("cache", FALSE)
+if ( require(cacheSweave) )
+   setCacheDir("cache")
+@
+
+
+\title{Analyzing diversification with {\tt diversitree}: \\  GeoSSE addendum}
+\author{Emma Goldberg}
+\date{\today}
+
+
+\begin{document}
+
+
+\maketitle
+\tableofcontents
+
+
+\section{Geographic distributions and diversification: GeoSSE}
+
+The GeoSSE model (Geographic State Speciation and Extinction) combines features of the constant-rates birth-death model with a three-state Markov model.
+It differs from BiSSE in parameterizing the model to represent diversification and range shifts among two regions, which includes allowing widely-distributed species whose ranges may change in conjunction with a speciation event.
+See \citet{goldberg-inpress} for a full explanation of the model assumptions.
+
+
+\subsection{Parameters and a tree}
+
+Simulating trees under GeoSSE is not yet part of {\tt diversitree}, but it can be done with a separate program, \citeauthor{simtreesdd}.
+A simulated tree is included and shown in \prettyref{fig:phy}.
+% FIXME: remove GSE at some point
+<<loadlib>>=
+library(diversitreeGSE)
+data("geosse")
+@
+<<plottree1, eval=false>>=
+statecols <- c("AB"="purple", "A"="blue", "B"="red")
+plot(phy, tip.color=statecols[phy$tip.state+1], cex=0.5)
+@
+\begin{figure}
+\centering
+<<plottree2, echo=false, fig=true>>=
+statecols <- c("AB"="purple", "A"="blue", "B"="red")
+plot(phy, tip.color=statecols[phy$tip.state+1], cex=0.5, no.margin=TRUE)
+@
+\caption{
+A GeoSSE tree simulated with {\tt params = c(1.5, 0.5, 1.0, 0.7, 0.7, 2.5, 0.5)}.
+The tip state colors are purple for species present in both regions (AB), blue for species only in region A, and red for species only in region B.
+}
+\label{fig:phy}
+\end{figure}
+
+An extremely crude starting point for parameter estimation can be obtained with:
+<<parstart>>=
+p <- starting.point.geosse(phy)
+p
+@
+The parameters are: speciation within region A ({\tt sA}), speciation within region B ({\tt sB}), between-region speciation ({\tt sAB}), extinction from region A ({\tt xA}), extinction from region B ({\tt xB}), dispersal from A to B (range expansion, {\tt dA}), and dispersal from B to A ({\tt dB}).
+
+
+\subsection{Model construction and constraining}
+
+Constructing and constraining likelihood functions works as for the other models.
+Here we will consider the full model, a model without between-region speciation, and a model without regional dependence of speciation or extinction rates.
+
+<<lik>>=
+lik1 <- make.geosse(phy, phy$tip.state)
+lik2 <- constrain(lik1, sAB ~ 0)
+lik3 <- constrain(lik1, sA ~ sB, xA ~ xB)
+@
+
+
+\subsection{Maximum likelihood}
+
+ML parameter estimation and model comparisons:
+
+<<ml, cache=true>>=
+ml1 <- find.mle(lik1, p)
+p <- coef(ml1)
+ml2 <- find.mle(lik2, p[argnames(lik2)])
+ml3 <- find.mle(lik3, p[argnames(lik3)])
+
+<<mlans>>=
+round(rbind(full = coef(ml1), no.sAB = coef(ml2, TRUE), eq.div = coef(ml3, TRUE)), 3)
+anova(ml1, no.sAB = ml2, eq.div = ml3)
+@
+
+On this tree, we reject the model of equal speciation and extinction in the two regions, concluding that there are regional differences in diversification.
+Including the between-region mode of speciation does not, however, significantly improve the fit.
+
+
+\subsection{Markov chain Monte Carlo}
+
+We will only consider the 6-parameter model here.
+Use the ML rate estimates as a starting point.
+Place a broad exponential prior on each parameter.
+<<par2>>=
+p <- coef(ml2)
+prior <- make.prior.exponential(1/2)
+@
+
+Use a pilot run to obtain reasonable step sizes:
+<<mcmc1, cache=true>>=
+set.seed(1)
+tmp <- mcmc(lik2, p, nsteps=100, prior=prior, lower=0, w=rep(1, 6))
+w <- diff(sapply(tmp[2:7], quantile, c(0.025, 0.975)))
+@
+
+Now the real analysis, which will take awhile to run:
+<<mcmc2, cache=true>>=
+mcmc2 <- mcmc(lik2, p, nsteps=10000, prior=prior, lower=0, w=w)
+@
+
+Marginal posterior distributions are shown in \prettyref{fig:mcmc}.
+We can also compare rate estimates by looking at posterior probabilities of their differences.
+<<mcmcprob>>=
+mcmc2diff <- with(mcmc2, data.frame(s.diff=sA-sB, x.diff=xA-xB, d.diff=dA-dB, div.A=sA-xA, div.B=sB-xB))
+colMeans(mcmc2diff > 0)
+@
+We correctly and confidently recover regional biases in speciation and dispersal, and positive net diversification in region A.
+With less confidence, we recover regional bias in extinction and negative net diversification for region B (i.e., extinction exceeds speciation in region B).
+
+\begin{figure}
+\centering
+<<mcmcplot, fig=true>>=
+col1 <- c("red", "orange", "blue", "purple", "black", "gray")
+col2 <- col1[c(1,3,5)]
+mcmc2diff <- with(mcmc2, data.frame(s.diff=sA-sB, x.diff=xA-xB, d.diff=dA-dB))
+par(mfrow=c(2,1), mar=c(3, 4, 0, 1))
+profiles.plot(mcmc2[2:7], col.line=col1, xlab="", ylab="")
+legend("topright", argnames(lik2), col=col1, lty=1)
+profiles.plot(mcmc2diff, col.line=col2, xlab="", ylab="")
+legend("topright", colnames(mcmc2diff), col=col2, lty=1)
+title(xlab="rate", ylab="posterior probability density", outer=T, line=-1)
+@
+\caption{
+Posterior probability distributions for the six-rate GeoSSE model, for the tree shown in \prettyref{fig:phy}.
+Uncertainty is largest for dispersal and smallest for speciation.
+Regional differences in speciation and, to some extent, in dispersal are recovered.
+}
+\label{fig:mcmc}
+\end{figure}
+
+
+\subsection{Additional options}
+
+GeoSSE likelihood functions can be built with randomly-incomplete sampling \citep{fitzjohn2009}.
+There is not currently support for unresolved clades.
+<<samp>>=
+p <- coef(ml1)
+lik1(p)
+lik4 <- make.geosse(phy, phy$tip.state, sampling.f=c(0.9, 0.6, 0.4))
+lik4(p)
+@
+
+When using the likelihood function, one can condition on survival of the clade (not done by default):
+<<surv>>=
+lik4(p, condition.surv=TRUE)
+@
+
+External information about the geographic distribution of the common ancestor of the clade can be enforced by fixing the root state.
+For example, if you are absolutely positive that the MRCA was found only in region B:
+<<root>>=
+lik4(p, root.p=c(0,0,1), root=ROOT.GIVEN)
+@
+Use this procedure with caution, and only in the face of truly external data, e.g., fossil or geologic information.
+
+
+\clearpage
+\section{Multi-clade analysis}
+
+Some applications of GeoSSE have combined multiple clades into a single analysis \citep{anacker-inpress, goldberg-inpress}.
+This has the advantage of providing a larger dataset and hence presumably more power, but it is important to keep in mind the assumptions that go into such an analysis.
+First, it treats all clades as evolving according to the same model, with the same values for the rate parameters.
+This can be tested by first fitting the clades individually, or it may be inherent to the hypothesis at hand.
+Second, it assumes that the clades are independent of each other, since their likelihoods are simply multiplied together to form a joint likelihood function.
+In some cases, this may be a defensible approximation, for example, when the clades being considered are only very distantly related.
+If you have decided that you can convince yourself and your reviewers that a multi-clade analysis is appropriate, here is one way to do it.
+
+% This could all be put into a multi.clade() function, but I am wary of making it too easy to use.
+
+Assemble the data as lists of trees and character state vectors.
+Each list element is one clade.
+Here we will use two trees from the chaparral study, one each from the posterior sets for {\em Ceanothus} and {\em Arctostaphylos}.
+The trees {\tt phy.cea} and {\tt phy.arc} and the tip states {\tt chars.cea} and {\tt chars.arc} (A = chaparral, B = forest) were read in with the call to {\tt data("geosse")} above.
+
+<<chaptree>>=
+chaparral.trees <- list(phy.cea, phy.arc)
+chaparral.states <- list(chars.cea, chars.arc)
+chaparral.samp <- list(c(0.913, 0.941, 0.875), c(0.674, 0.533, 0.750))
+n.clades <- length(chaparral.trees)
+@
+
+Create an individual likelihood function for each clade.
+
+<<chaplik>>=
+lnL.each <- list()
+for (i in seq(n.clades))
+{
+    lnL <- make.geosse(chaparral.trees[[i]], chaparral.states[[i]], sampling.f=chaparral.samp[[i]])
+    lnL.each[[i]] <- constrain(lnL, sAB ~ 0)
+}
+@
+
+Now define the joint, multi-clade likelihood function.
+Note that {\tt lnL.each} must have the same name here and above.
+
+<<chaplik2>>=
+lnL.multi <- function(pars, ...)
+{
+    total.lnL <- 0
+    for (i in seq_along(lnL.each))
+    {
+        this.lnL <- lnL.each[[i]](pars, ...)
+        total.lnL <- total.lnL + this.lnL
+    }
+
+    if (is.na(total.lnL) || !is.finite(total.lnL)) return(-Inf) else return(total.lnL)
+}
+class(lnL.multi) <- "geosse"
+@
+
+Now {\tt lnL.multi()} can be used like any other likelihood function, for example
+<<chaplik3>>=
+chaparral.params <- c(0.19, 0.08, 0.29, 0.48, 1.29, 0.87)
+lnL.multi(chaparral.params)
+@
+or in {\tt find.mle()} or {\tt mcmc()}.
+
+
+
+\bibliography{geosse}
+\bibliographystyle{evolution}
+
+
+\end{document}

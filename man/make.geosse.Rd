@@ -118,8 +118,7 @@ data("geosse")
 lik <- make.geosse(phy, phy$tip.state)
 
 ## See the data
-statecols <- c("purple", "blue", "red")
-# state ordering is AB, A, B
+statecols <- c("AB"="purple", "A"="blue", "B"="red")
 plot(phy, tip.color=statecols[phy$tip.state+1], cex=0.5)
 
 ## With "true" parameter values
