@@ -12,7 +12,7 @@
 
 \usage{
 make.geosse(tree, states, sampling.f=NULL, safe=FALSE, strict=TRUE)
-starting.point.geosse(tree, q.div=5, yule=FALSE)
+starting.point.geosse(tree, yule=FALSE)
 }
 
 \arguments{
@@ -36,9 +36,8 @@ starting.point.geosse(tree, q.div=5, yule=FALSE)
     (the default), then the additional check is made that \emph{every}
     state is present.  The likelihood models tend to be poorly behaved
     where states are missing.}
-  \item{q.div}{Ratio of diversification rate to state change rate.}
-  \item{yule}{Should starting parameters be Yule estimates rather than
-    birth-death estimates?}
+  \item{yule}{Should starting parameters have zero extinction?  If not,
+    the extinction rate is half the speciation rate.}
 }
 
 \details{
@@ -89,8 +88,8 @@ starting.point.geosse(tree, q.div=5, yule=FALSE)
     information on these.
   }
   
-  \code{starting.point.geosse} produces a not-that-great starting point
-  based on \code{starting.point.bisse}.
+  \code{starting.point.geosse} produces a first-guess set of parameters,
+    ignoring character states.
 
   Note that unresolved clade methods are not (yet?) available for GeoSSE.
 }
@@ -99,7 +98,7 @@ starting.point.geosse(tree, q.div=5, yule=FALSE)
 \seealso{
   \code{\link{constrain}} for making submodels, \code{\link{find.mle}}
   for ML parameter estimation, \code{\link{mcmc}} for MCMC integration,
-  \code{\link{make.bisse}} for further relevant examples..
+  \code{\link{make.bisse}} for further relevant examples.
 
   The help page for \code{\link{find.mle}} has further examples of ML
   searches on full and constrained BiSSE models.  Things work similarly
@@ -125,7 +124,7 @@ plot(phy, tip.color=statecols[phy$tip.state+1], cex=0.5)
 names(pars) <- argnames(lik)
 lik(pars) # -297.6749
 
-## A poorly-informed guess at a starting point.
+## A guess at a starting point.
 p <- starting.point.geosse(phy)
 
 ## Start an ML search from this point (takes several seconds to run).

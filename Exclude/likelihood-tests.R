@@ -69,3 +69,36 @@ mcmc(constrain(lnL.7par, dA ~ dB, sAB ~ 0), pars[-c(3,7)], nsteps=3, lower=0, up
 # 1: {1.7079, 0.5958, 0.9004, 0.1992, 1.0660} -> -25.93986
 # 2: {1.4176, 0.4126, 1.0722, 0.5315, 2.1264} -> -27.70291
 # 3: {2.0392, 0.4766, 0.6001, 0.1083, 1.9912} -> -25.94858
+
+
+
+#--------------------------------------------------
+# Looking at NaN problem.
+# The fundamental problem is parameter values that make the observed tip states impossible.
+#-------------------------------------------------- 
+
+phy <- read.tree(text="(A:1, B:1);")
+phy$tip.state <- c(A=1, B=2)
+lnL <- make.geosse(phy, phy$tip.state, strict=F)
+p <- c(1, 1, 0, 0, 0, 0.5, 0.5)
+lnL(p, intermediates=T)
+
+
+pars <- c(1, 1, 0, 0, 0, 0.5, 0.5)
+cache <- diversitreeGSE:::make.cache.geosse(phy, phy$tip.state, unresolved=NULL, sampling.f=NULL, nt.extra=10, strict=F)
+branches <- diversitreeGSE:::make.branches.geosse(FALSE)
+initial.conditions <- diversitreeGSE:::initial.conditions.geosse
+
+ans <- diversitreeGSE:::all.branches(pars, cache, initial.conditions, branches)
+vals <- ans$init[[cache$root]]
+root.p <- diversitreeGSE:::root.p.geosse(vals, pars, ROOT.OBS, NULL)
+
+#ll.xxsse.geosse <- function(pars, cache, initial.conditions,
+#                     branches, condition.surv, root, root.p,
+#                     intermediates) {
+  ans <- all.branches(pars, cache, initial.conditions, branches)
+  vals <- ans$init[[cache$root]]
+  root.p <- root.p.geosse(vals, pars, root, root.p)
+  loglik <- root.geosse(vals, pars, ans$lq, condition.surv, root.p)
+  ans$root.p <- root.p
+  cleanup(loglik, pars, intermediates, cache, ans)
