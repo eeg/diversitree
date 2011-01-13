@@ -13,7 +13,7 @@ Description: Contains an R implementation of BiSSE (Binary State
   trait method (QuaSSE) and multi-state/multi-trait BiSSE-like
   methods.  Other included methods include Markov models of discrete
   trait evolution and constant rate speciation and extinction.
-  *** EEG: includes GSE2 ***
+  *** from Emma E. Goldberg <eeg@uic.edu>:
+  *** Added the GSE2 = GeoSSE model of region-dependent diversification.
 License: GPL (>=2)
 URL: http://www.zoology.ubc.ca/prog/diversitree
-Packaged: 2010-03-03 02:59:10 UTC; rich
