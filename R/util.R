@@ -27,6 +27,7 @@ boxconstrain <- function(f, lower, upper, fail.value=-Inf) {
 }
 
 big.brother <- function(f, interval=1) {
+  f <- f # force argument to prevent recursion (pass by value)
   .x.eval <- list()
   .y.eval <- list()
   function(x, ...) {
@@ -201,7 +202,7 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
 
     switch(vers,
            "1.5"=f.1.5, "1.5-1"=f.1.5, "1.6"=f.1.6, "1.7"=f.1.7,
-           "1.8"=f.1.7,
+           "1.8"=f.1.7, "1.8.1"=f.1.7,
            stop("Cannot use diversitree with deSolve version ", vers))
   }
 }

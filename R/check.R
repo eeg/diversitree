@@ -1,7 +1,7 @@
 ## Checking utilities.  These are things that happen over and over
 ## again, and are tedious to have to write into each function.
 check.tree <- function(tree, ultrametric=TRUE, bifurcating=TRUE,
-                       node.labels=TRUE) {
+                       node.labels=FALSE) {
   if ( !inherits(tree, "phylo") )
     stop("'tree' must be a valid phylo tree")
   if ( ultrametric && !is.ultrametric(tree) )
@@ -119,4 +119,11 @@ check.par.multipart <- function(pars, n.part, n.per) {
     pars <- matrix.to.list(matrix(pars, n.part, n.per, TRUE))
   }
   pars
+}
+
+## Check that a number can reasonably be considered an integer.
+check.integer <- function(x) {
+  if ( max(abs(x - round(x))) > 1e-8 )
+    stop("Non-integer argument for ", deparse(substitute(x)))
+  as.integer(x)
 }
