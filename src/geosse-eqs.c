@@ -1,11 +1,6 @@
 /*
  * The GeoSSE equations, implemented in C
- *
- * Usage outside of the package:
- *    $ gcc -c -I/usr/share/R/include -fPIC geosse-eqs.c
- *    $ gcc -shared -o geosse-eqs.so geosse-eqs.o
- *    creates geosse-eqs.so
- *    > dyn.load('geosse-eqs.so')   # load in R
+ * By Emma Goldberg <eeg@uic.edu>
  */
 
 #include <R.h>

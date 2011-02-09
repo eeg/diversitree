@@ -4,11 +4,6 @@
 \alias{logLik.fit.mle}
 \alias{anova.fit.mle}
 
-% \alias{find.mle.bisse}
-% \alias{starting.point.bisse}
-% \alias{starting.point} % DEP
-% \alias{bisse.starting.point} % DEP
-
 \title{Maximimum Likelihood Inference}
 
 \description{Find the maximum likelihood point of a model by nonlinear
@@ -20,9 +15,6 @@ find.mle(func, x.init, method, ...)
 \method{coef}{fit.mle}(object, full=FALSE, extra=FALSE, ...)
 \method{logLik}{fit.mle}(object, ...)
 \method{anova}{fit.mle}(object, ..., sequential=FALSE)
-%\method{find.mle}{bisse}(func, x.init, method, fail.value=NA, ...)
-%bisse.starting.point(tree, q.div=5)
-%starting.point(tree, q.div=5)
 }
 
 \arguments{

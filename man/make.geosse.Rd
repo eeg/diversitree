@@ -11,7 +11,7 @@
   inference.}
 
 \usage{
-make.geosse(tree, states, sampling.f=NULL, safe=FALSE, strict=TRUE)
+make.geosse(tree, states, sampling.f=NULL, strict=TRUE, safe=FALSE)
 starting.point.geosse(tree, yule=FALSE)
 }
 
@@ -114,20 +114,21 @@ pars <- c(1.5, 0.5, 1.0, 0.7, 0.7, 2.5, 0.5)
 data("geosse")
 
 ## The likelihood function
-lik <- make.geosse(phy, phy$tip.state)
+lik <- make.geosse(geosse.phy, geosse.phy$tip.state)
 
 ## See the data
 statecols <- c("AB"="purple", "A"="blue", "B"="red")
-plot(phy, tip.color=statecols[phy$tip.state+1], cex=0.5)
+plot(geosse.phy, tip.color=statecols[geosse.phy$tip.state+1], cex=0.5)
 
 ## With "true" parameter values
 names(pars) <- argnames(lik)
 lik(pars) # -297.6749
 
 ## A guess at a starting point.
-p <- starting.point.geosse(phy)
+p <- starting.point.geosse(geosse.phy)
 
 ## Start an ML search from this point (takes several seconds to run).
+\dontrun{
 fit <- find.mle(lik, p, method="subplex")
 logLik(fit) # -295.0275
 
@@ -143,11 +144,13 @@ logLik(fit.d) # -296.5956
 lik.s <- constrain(lik, sA ~ sB, sAB ~ 0)
 fit.s <- find.mle(lik.s, p[-c(2,3)])
 logLik(fit.s) # -302.5542
+}
 
 ## "Skeletal tree" sampling is supported.  For example, if your tree
 ## includes all AB species, half of A species, and a third of B species,
 ## create the likelihood function like this:
-lik.f <- make.geosse(phy, phy$tip.state, sampling.f=c(1, 0.5, 1/3))
+lik.f <- make.geosse(geosse.phy, geosse.phy$tip.state,
+                     sampling.f=c(1, 0.5, 1/3))
 
 ## If you have external evidence that the base of your tree must have
 ## been in state 1, say (endemic to region A), you can fix the root 
@@ -160,9 +163,9 @@ lik(pars, root=ROOT.GIVEN, root.p=c(0,1,0))
   trait-dependent speciation and extinction rates from incompletely
   resolved phylogenies. Syst. Biol. 58:595-611.
   
-  Goldberg E.E., Lancaster L.T., and Ree R.H. Phylogenetic inference of
-  reciprocal effects between geographic range evolution and
-  diversification. in review at Syst Biol.
+  Goldberg E.E., Lancaster L.T., and Ree R.H. (in press). 
+  Phylogenetic inference of reciprocal effects between geographic 
+  range evolution and diversification. Syst. Biol.
 
   Maddison W.P., Midford P.E., and Otto S.P. 2007. Estimating
   a binary character's effect on speciation and
