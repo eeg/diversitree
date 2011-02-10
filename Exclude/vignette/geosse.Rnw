@@ -125,14 +125,14 @@ prior <- make.prior.exponential(1/2)
 @
 
 Use a pilot run to obtain reasonable step sizes:
-<<mcmc1, cache=true>>=
+<<mcmc1, cache=true, results=hide>>=
 set.seed(1)
 tmp <- mcmc(lik2, p, nsteps=100, prior=prior, lower=0, w=rep(1, 6))
 w <- diff(sapply(tmp[2:7], quantile, c(0.025, 0.975)))
 @
 
 Now the real analysis, which will take awhile to run:
-<<mcmc2, cache=true>>=
+<<mcmc2, cache=true, results=hide>>=
 mcmc2 <- mcmc(lik2, p, nsteps=10000, prior=prior, lower=0, w=w)
 @
 
@@ -194,7 +194,7 @@ Use this procedure with caution, and only in the face of truly external data, e.
 \clearpage
 \section{Multi-clade analysis}
 
-Some applications of GeoSSE have combined multiple clades into a single analysis \citep{anacker-inpress, goldberg-inpress}.
+Some applications of GeoSSE have combined multiple clades into a single analysis \citep{anacker2011, goldberg-inpress}.
 This has the advantage of providing a larger dataset and hence presumably more power, but it is important to keep in mind the assumptions that go into such an analysis.
 First, it treats all clades as evolving according to the same model, with the same values for the rate parameters.
 This can be tested by first fitting the clades individually, or it may be inherent to the hypothesis at hand.
@@ -214,12 +214,12 @@ chaparral.samp <- list(c(0.913, 0.941, 0.875), c(0.674, 0.533, 0.750))
 @
 
 Create an individual likelihood function for each clade.
-<<chaplik>>=
+<<chaplik1>>=
 lnL.each <- list()
 for (i in seq_along(chaparral.trees) )
   lnL.each[[i]] <- make.geosse(chaparral.trees[[i]],
                                chaparral.states[[i]],
-                               sampling.f = chaparral.samp[[i]])
+                               sampling.f=chaparral.samp[[i]])
 @
 
 Now define the joint, multi-clade likelihood function.
@@ -244,14 +244,13 @@ Now {\tt lnL.multi()} can be used like any other likelihood function, for exampl
 <<chaplik3>>=
 chaparral.params <- c(0.19, 0.08, 0.29, 0.48, 1.29, 0.87)
 lnL.multi(chaparral.params)
-find.mle(lnL.multi, chaparral.params)
 @
-or in {\tt mcmc()}.
-% or in {\tt find.mle()} or {\tt mcmc()}.
+or in {\tt find.mle()} or {\tt mcmc()}.
 
+% find.mle(lnL.multi, chaparral.params)
 %           sA           sB           xA           xB           dA           dB 
-% 1.332638e-01 3.681085e-02 2.644015e-02 1.010544e-01 3.973645e-01 1.280796e-08 
-% [1] -382.0963
+% 1.333745e-01 3.676180e-02 2.659455e-02 1.014985e-01 3.981056e-01 7.809753e-08
+% [1] -382.0964
 
 
 \bibliography{geosse}
