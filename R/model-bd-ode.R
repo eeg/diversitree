@@ -75,7 +75,7 @@ initial.conditions.bd.ode <- function(init, pars, t, is.root=FALSE)
 ## 8: branches
 make.branches.bd.ode <- function(safe=FALSE) {
   RTOL <- ATOL <- 1e-8
-  bd.ode <- make.ode("derivs_bd", "diversitreeGSE", "initmod_bd", 2, safe)
+  bd.ode <- make.ode("derivs_bd", "diversitree", "initmod_bd", 2, safe)
   branches <- function(y, len, pars, t0)
     t(bd.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   make.branches(branches, 2)

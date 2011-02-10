@@ -136,7 +136,7 @@ make.branches.musse <- function(k, safe=FALSE) {
 
   if ( k == 2 )
     warning("Two states is faster with BiSSE")
-  musse.ode <- make.ode("derivs_musse", "diversitreeGSE",
+  musse.ode <- make.ode("derivs_musse", "diversitree",
                         "initmod_musse", 2*k, FALSE)
 
   branches.musse <- function(y, len, pars, t0) {

@@ -32,7 +32,7 @@ if ( require(cacheSweave) )
 
 
 \title{Analyzing diversification with {\tt diversitree}: \\  GeoSSE addendum}
-\author{Emma Goldberg}
+\author{Emma E.\ Goldberg}
 \date{\today}
 
 
@@ -54,20 +54,19 @@ See \citet{goldberg-inpress} for a full explanation of the model assumptions.
 
 Simulating trees under GeoSSE is not yet part of {\tt diversitree}, but it can be done with a separate program, \citeauthor{simtreesdd}.
 A simulated tree is included and shown in \prettyref{fig:phy}.
-% FIXME: remove GSE at some point
 <<loadlib>>=
-library(diversitreeGSE)
+library(diversitree)
 data("geosse")
 @
 <<plottree1, eval=false>>=
 statecols <- c("AB"="purple", "A"="blue", "B"="red")
-plot(phy, tip.color=statecols[phy$tip.state+1], cex=0.5)
+plot(geosse.phy, tip.color=statecols[geosse.phy$tip.state+1], cex=0.5)
 @
 \begin{figure}
 \centering
 <<plottree2, echo=false, fig=true>>=
 statecols <- c("AB"="purple", "A"="blue", "B"="red")
-plot(phy, tip.color=statecols[phy$tip.state+1], cex=0.5, no.margin=TRUE)
+plot(geosse.phy, tip.color=statecols[geosse.phy$tip.state+1], cex=0.5, no.margin=TRUE)
 @
 \caption{
 A GeoSSE tree simulated with {\tt params = c(1.5, 0.5, 1.0, 0.7, 0.7, 2.5, 0.5)}.
@@ -76,9 +75,9 @@ The tip state colors are purple for species present in both regions (AB), blue f
 \label{fig:phy}
 \end{figure}
 
-An extremely crude starting point for parameter estimation can be obtained with:
+A crude starting point for parameter estimation can be obtained with:
 <<parstart>>=
-p <- starting.point.geosse(phy)
+p <- starting.point.geosse(geosse.phy)
 p
 @
 The parameters are: speciation within region A ({\tt sA}), speciation within region B ({\tt sB}), between-region speciation ({\tt sAB}), extinction from region A ({\tt xA}), extinction from region B ({\tt xB}), dispersal from A to B (range expansion, {\tt dA}), and dispersal from B to A ({\tt dB}).
@@ -90,7 +89,7 @@ Constructing and constraining likelihood functions works as for the other models
 Here we will consider the full model, a model without between-region speciation, and a model without regional dependence of speciation or extinction rates.
 
 <<lik>>=
-lik1 <- make.geosse(phy, phy$tip.state)
+lik1 <- make.geosse(geosse.phy, geosse.phy$tip.state)
 lik2 <- constrain(lik1, sAB ~ 0)
 lik3 <- constrain(lik1, sA ~ sB, xA ~ xB)
 @
@@ -175,7 +174,7 @@ There is not currently support for unresolved clades.
 <<samp>>=
 p <- coef(ml1)
 lik1(p)
-lik4 <- make.geosse(phy, phy$tip.state, sampling.f=c(0.9, 0.6, 0.4))
+lik4 <- make.geosse(geosse.phy, geosse.phy$tip.state, sampling.f=c(0.9, 0.6, 0.4))
 lik4(p)
 @
 
@@ -203,67 +202,29 @@ Second, it assumes that the clades are independent of each other, since their li
 In some cases, this may be a defensible approximation, for example, when the clades being considered are only very distantly related.
 If you have decided that you can convince yourself and your reviewers that a multi-clade analysis is appropriate, here is one way to do it.
 
-% This could all be put into a multi.clade() function, but I am wary of making it too easy to use.
-
 Assemble the data as lists of trees and character state vectors.
 Each list element is one clade.
 Here we will use two trees from the chaparral study, one each from the posterior sets for {\em Ceanothus} and {\em Arctostaphylos}.
-The trees {\tt phy.cea} and {\tt phy.arc} and the tip states {\tt chars.cea} and {\tt chars.arc} (A = chaparral, B = forest) were read in with the call to {\tt data("geosse")} above.
+The trees {\tt geosse.phy.cea} and {\tt geosse.phy.arc} and the tip states {\tt geosse.chars.cea} and {\tt geosse.chars.arc} (A = chaparral, B = forest) were read in with the call to {\tt data("geosse")} above.
 
 <<chaptree>>=
-chaparral.trees <- list(phy.cea, phy.arc)
-chaparral.states <- list(chars.cea, chars.arc)
+chaparral.trees <- list(geosse.phy.cea, geosse.phy.arc)
+chaparral.states <- list(geosse.chars.cea, geosse.chars.arc)
 chaparral.samp <- list(c(0.913, 0.941, 0.875), c(0.674, 0.533, 0.750))
-n.clades <- length(chaparral.trees)
 @
 
 Create an individual likelihood function for each clade.
-
 <<chaplik>>=
 lnL.each <- list()
-for (i in seq(n.clades))
-{
-    lnL <- make.geosse(chaparral.trees[[i]], chaparral.states[[i]], sampling.f=chaparral.samp[[i]])
-    lnL.each[[i]] <- constrain(lnL, sAB ~ 0)
-}
+for (i in seq_along(chaparral.trees) )
+  lnL.each[[i]] <- make.geosse(chaparral.trees[[i]],
+                               chaparral.states[[i]],
+                               sampling.f = chaparral.samp[[i]])
 @
 
 Now define the joint, multi-clade likelihood function.
-Note that {\tt lnL.each} must have the same name here and above.
-
+(I actually used a somewhat messier procedure, but Rich suggested this {\tt combine()} function.)
 <<chaplik2>>=
-lnL.multi <- function(pars, ...)
-{
-    total.lnL <- 0
-    for (i in seq_along(lnL.each))
-    {
-        this.lnL <- lnL.each[[i]](pars, ...)
-        total.lnL <- total.lnL + this.lnL
-    }
-
-    if (is.na(total.lnL) || !is.finite(total.lnL)) return(-Inf) else return(total.lnL)
-}
-class(lnL.multi) <- class(lnL.each[[1]])
-attributes(lnL.multi) <- attributes(lnL.each[[1]])
-@
-
-Now {\tt lnL.multi()} can be used like any other likelihood function, for example
-<<chaplik3>>=
-chaparral.params <- c(0.19, 0.08, 0.29, 0.48, 1.29, 0.87)
-lnL.multi(chaparral.params)
-@
-or in {\tt find.mle()} or {\tt mcmc()}.
-
-
-
-\bibliography{geosse}
-\bibliographystyle{evolution}
-
-
-\end{document}
-
-
-<<>>=
 combine <- function(liks) {
   if ( length(unique(lapply(liks, class))) != 1 )
     stop("All functions must have the same class")
@@ -274,26 +235,27 @@ combine <- function(liks) {
   class(ret) <- c("combined", class(liks[[1]]))
   ret
 }
-
-chaparral.trees <- list(phy.cea, phy.arc)
-chaparral.states <- list(chars.cea, chars.arc)
-chaparral.samp <- list(c(0.913, 0.941, 0.875), c(0.674, 0.533, 0.75))
-
-lnL.each <- list()
-for (i in seq_along(chaparral.trees) )
-  lnL.each[[i]] <- make.geosse(chaparral.trees[[i]],
-                               chaparral.states[[i]],
-                               sampling.f = chaparral.samp[[i]])
-
-lik.multi <- constrain(combine(lnL.each), sAB ~ 0)
-
-lik.multi(chaparral.params)
-find.mle(lik.multi, chaparral.params)
+lnL.multi <- constrain(combine(lnL.each), sAB ~ 0)
 @
+% if (is.na(total.lnL) || !is.finite(total.lnL)) return(-Inf) else return(total.lnL)
+% attributes(lnL.multi) <- attributes(lnL.each[[1]])
+
+Now {\tt lnL.multi()} can be used like any other likelihood function, for example
+<<chaplik3>>=
+chaparral.params <- c(0.19, 0.08, 0.29, 0.48, 1.29, 0.87)
+lnL.multi(chaparral.params)
+find.mle(lnL.multi, chaparral.params)
+@
+or in {\tt mcmc()}.
+% or in {\tt find.mle()} or {\tt mcmc()}.
+
+%           sA           sB           xA           xB           dA           dB 
+% 1.332638e-01 3.681085e-02 2.644015e-02 1.010544e-01 3.973645e-01 1.280796e-08 
+% [1] -382.0963
 
 
+\bibliography{geosse}
+\bibliographystyle{evolution}
 
-          sA           sB           xA           xB           dA           dB 
-1.332638e-01 3.681085e-02 2.644015e-02 1.010544e-01 3.973645e-01 1.280796e-08 
-[1] -382.0963
 
+\end{document}

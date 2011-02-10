@@ -211,7 +211,7 @@ pij.mk2 <- function(len, pars) {
 }
 
 make.pij.mkn <- function(k) {
-  pij.ode <- make.ode("derivs_mkn_pij", "diversitreeGSE",
+  pij.ode <- make.ode("derivs_mkn_pij", "diversitree",
                       "initmod_mkn", k*k, FALSE)
   ATOL <- RTOL <- 1e-8
   yi <- diag(k)
