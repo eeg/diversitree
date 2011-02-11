@@ -25,8 +25,11 @@ make.bd <- function(tree, times=NULL,
 
 make.yule <- function(tree, times=NULL,
                       sampling.f=NULL, unresolved=NULL) {
+  if ( !is.null(sampling.f) || !is.null(unresolved) )
+    stop("Cannot yet do Yule model with unresolved clades or sampling.f")
   cache <- make.cache.bd(tree, times, sampling.f, unresolved)
-  ll <- function(pars, ...) ll.bd(cache, c(pars, 0), ...)
+  ll <- function(pars, ...)
+    ll.bd(cache, c(pars, 0), ...)
   class(ll) <- c("yule", "bd", "function")
   ll
 }
@@ -86,7 +89,7 @@ find.mle.bd <- function(func, x.init, method,
     x.init <- structure(c(.2, .1), names=argnames(func))
   }
   if ( missing(method) )
-    method <- "nlm"
+    method <- if (inherits(func, "bd.split")) "subplex" else "nlm"
   find.mle.default(func, x.init, method, fail.value,
                    class.append="fit.mle.bd", ...)
   ## NextMethod("find.mle", x.init=x.init, method=method,
@@ -105,10 +108,6 @@ find.mle.yule <- function(func, x.init, method, fail.value=NA,
   if ( is.null(condition.surv) )
     condition.surv <- TRUE
 
-  if ( !is.null(environment(func)$prior) )
-    stop("Cannot yet get MAP point for Yule with prior - ",
-         "use constrained bd model instead")
-
   n.node <- if ( condition.surv ) cache$n.node - 1 else cache$n.node
   lambda <- n.node / cache$tot.len
   obj <- list(par=c(lambda=lambda),
@@ -121,38 +120,44 @@ find.mle.yule <- function(func, x.init, method, fail.value=NA,
   obj
 }
 
+mcmc.bd <- mcmc.lowerzero
+
 ## 5: make.cache
 make.cache.bd <- function(tree=NULL, times=NULL,
                           sampling.f=NULL, unresolved=NULL) {
-  if ( !is.null(times) && !is.null(tree) )
+  if ( !is.null(times) && !is.null(tree) ) {
     stop("times cannot be specified if tree given")
-  else if ( is.null(times) && is.null(tree) )
+  } else if ( is.null(times) && is.null(tree) ) {
     stop("Either times or tree must be specified")
-  else if ( is.null(times) )
+  } else if ( is.null(times) ) {
+    tree <- check.tree(tree)
     times <- as.numeric(sort(branching.times(tree), decreasing=TRUE))
-  else
+  } else {
     times <- as.numeric(sort(times, decreasing=TRUE))
+  }
+
+  if ( inherits(tree, "clade.tree") ) {
+    if ( !is.null(unresolved) )
+      stop("'unresolved' cannot be specified where 'tree' is a clade.tree")
+    unresolved <- make.unresolved.bd(tree$clades)
+  }
 
   if ( !is.null(sampling.f) && !is.null(unresolved) )
     stop("Cannot specify both sampling.f and unresolved")
-  else if ( is.null(sampling.f) )
-    sampling.f <- 1
-  else if ( length(sampling.f) != 1 )
-    stop("sampling.f must be of length 1 (or NULL)")
-  else if ( sampling.f > 1 || sampling.f <= 0 )
-    stop("sampling.f must be on range (0,1]")
+  else
+    sampling.f <- check.sampling.f(sampling.f, 1)
 
   if ( !is.null(unresolved) && length(unresolved) > 0 ) {
     if ( is.null(names(unresolved)) || !is.numeric(unresolved) )
       stop("'unresolved' must be a named numeric vector")
     if ( !(all(names(unresolved) %in% tree$tip.label)) )
       stop("Unknown species in 'unresolved'")
-    if ( any(unresolved < 0) )
+    if ( any(unresolved < 1) )
       stop("All unresolved entries must be > 0")
 
-    if ( any(unresolved == 0) ) {
-      warning("Removing unresolved entries that are zero")
-      unresolved <- unresolved[unresolved != 0]
+    if ( any(unresolved == 1) ) {
+      warning("Removing unresolved entries that are one")
+      unresolved <- unresolved[unresolved != 1]
     }
 
     if ( length(unresolved) == 0 )
@@ -182,16 +187,22 @@ make.cache.bd <- function(tree=NULL, times=NULL,
        n.node=n.node)
 }
 
+## TODO: Has argument checking been lost here?
 ## This allows r < 0, a > 1.  a < 0 is not allowed though
 ## Also, if r < 0, then a must > 1 (and vv.).  XOR captures this.
 ##   if ( a < 0 || sign(1-a) != sign(r) ) return(-Inf)
 ## Alternatively, just enforce all(pars > 0)?
 ll.bd <- function(cache, pars, prior=NULL, condition.surv=TRUE) {
+  if ( !is.null(prior) )
+    stop("'prior' argument to likelihood function no longer accepted")
+
   N <- cache$N
   x <- cache$x
   f <- cache$f
   unresolved <- cache$unresolved
 
+  if ( length(pars) != 2 )
+    stop("Incorrect number of parameters")
   if ( pars[2] == pars[1] )
     pars[1] <- pars[1] + 1e-12
 
@@ -214,7 +225,7 @@ ll.bd <- function(cache, pars, prior=NULL, condition.surv=TRUE) {
   if ( !condition.surv )
     loglik <- loglik +
       log(f * f * r * (1 - a)) -
-        2*log(abs(exp(-r * x[2])*(a - 1+f) + f))
+        2*log(abs(exp(-r * x[2])*(a - 1 + f) - f))
 
   if ( !is.null(unresolved) ) {
     ert <- exp(r * unresolved$t)
@@ -222,16 +233,7 @@ ll.bd <- function(cache, pars, prior=NULL, condition.surv=TRUE) {
       sum((unresolved$n-1) * (log(abs(ert - 1)) - log(abs(ert - a))))
   }
 
-  if ( is.null(prior) )
-    p <- loglik
-  else if ( is.numeric(prior) )
-    p <- loglik + prior.default(pars, prior)
-  else if ( is.function(prior) )
-    p <- loglik + prior(pars)
-  else
-    stop("Invalid 'prior' argument")
-
-  p
+  loglik
 }
 
 starting.point.bd <- function(tree, yule=FALSE) {
@@ -239,7 +241,7 @@ starting.point.bd <- function(tree, yule=FALSE) {
   if ( yule )
     p <- pars.yule
   else
-    p <- coef(find.mle(make.bd(tree), pars.yule))
+    p <- coef(find.mle(make.bd(tree), pars.yule, method="subplex"))
   names(p) <- c("lambda", "mu")
   p
 }

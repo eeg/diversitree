@@ -104,9 +104,12 @@ constrain.parse <- function(formula, names.lhs, names.rhs,
 
 constrain <- function(f, ..., formulae=NULL, names=argnames(f),
                       extra=NULL) {
-  if ( inherits(f, "constrained") )
-    warning("It is probaably not a good idea to constrain a constrained function")
-  formulae <- c(list(...), formulae)
+  if ( inherits(f, "constrained") ) {
+    formulae <- c(attr(f, "formulae"), formulae)
+    f <- attr(f, "func")
+  }
+
+  formulae <- c(formulae, list(...))
   names.lhs <- names.rhs <- names
   rels <- list()
   
@@ -181,4 +184,24 @@ update.constrained <- function(object, free, ...) {
     constrain(func, formulae=formulae, extra=extra)
   else
     func
+}
+
+## This is a simple constraining function...information coming soon
+## (not exported)
+constrain.i <- function(f, p, i) {
+  n <- length(i)
+  g <- function(x) {
+    if ( length(x) != n )
+      stop(sprintf("Incorrect parameter length: expected %d, got %d",
+                   n, length(x)))
+    p[i] <- x
+    f(p)
+  }
+
+  class(g) <- c("constrained.i", class(f)) # HACK!
+  tmp <- try(argnames(f), silent=TRUE)
+  if ( !inherits(tmp, "try-error") && !is.null(tmp) )
+    attr(g, "argnames") <- tmp[i]
+  attr(g, "func") <- f
+  g
 }

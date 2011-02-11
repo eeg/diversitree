@@ -16,7 +16,18 @@ protect <- function(f, fail.value.default=NULL) {
 
 invert <- function(f) function(...) -f(...)
 
+## Box constraints
+boxconstrain <- function(f, lower, upper, fail.value=-Inf) {
+  function(x, ...) {
+    if ( any(x < lower | x > upper) )
+      fail.value
+    else
+      f(x, ...)
+  }
+}
+
 big.brother <- function(f, interval=1) {
+  f <- f # force argument to prevent recursion (pass by value)
   .x.eval <- list()
   .y.eval <- list()
   function(x, ...) {
@@ -150,6 +161,8 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
       ret
     }
 
+    ## f.1.7 also works with f.1.8: no changes were made to the lsoda
+    ## call.
     f.1.7 <- function(y, times, parms, rtol, atol) {
       if (!is.numeric(y)) 
         stop("`y' must be numeric")
@@ -189,6 +202,7 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
 
     switch(vers,
            "1.5"=f.1.5, "1.5-1"=f.1.5, "1.6"=f.1.6, "1.7"=f.1.7,
+           "1.8"=f.1.7, "1.8.1"=f.1.7, "1.9"=f.1.7,
            stop("Cannot use diversitree with deSolve version ", vers))
   }
 }
@@ -198,19 +212,132 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
 quadratic.roots <- function(a, b, c)
   (-b + c(-1, 1) * sqrt(b*b - 4*a*c))/(2 * a)
 
-## TODO: Do the tips immediately after the loop; this should be really
-## easy, but I think that I need to include the edge matrix to make it
-## work.  Should be something like this:
-##   ans[tips] <- ans[match(tips, edge[,2])]
-ancestors <- function(parent, order) {
-  ans <- vector("list", max(order))
-  for ( i in rev(order[-length(order)]) )
-    ans[[i]] <- c(parent[i], ans[[parent[i]]])
-  ans
-}
 
 discretize <- function(x, n, r=range(x)) {
   at <- seq(r[1], r[2], length=n+1)
   as.integer(cut(x, at, include.lowest=TRUE, labels=FALSE))
 }
 
+make.prior.exponential <- function(r) {
+  function(pars)
+    sum(log(r) - pars * r)
+}
+
+## This is still experimental, and will not work nicely unless
+## everything is nicely paired (it will not work well with constrained
+## models, for example).
+make.prior.ExpBeta <- function(r, beta) {
+  to.pars2 <- function(pars) {
+    m <- matrix(pars, 2)
+    pars.mean <- colMeans(m)
+    d <- 1 - (m[1,] / (2*pars.mean))
+    rbind(pars.mean, d)
+  }
+  function(pars) {
+    pars2 <- to.pars2(pars)
+    sum(dexp(pars2[1,], r, log=TRUE)) +
+      sum(dbeta(pars2[2,], beta, beta, log=TRUE))
+  }
+}
+
+
+## This is the same as the function in quasse2
+descendants <- function(node, edge) {
+  ans <- node
+  repeat {
+    node <- edge[edge[,1] %in% node,2]
+    if ( length(node) > 0 )
+      ans <- c(ans, node)
+    else
+      break
+  }
+
+  unlist(ans)
+}
+
+ancestors <- function(phy, i=seq_along(phy$tip.label)) {
+  anc <- i
+  edge <- phy$edge
+  while ( any(!is.na(i)) ) {
+    i <- edge[match(i, edge[,2]),1]
+    anc <- cbind(anc, i, deparse.level=0)
+  }
+
+  apply(anc, 1, function(x)
+        c(rev(x[!is.na(x)]), rep(NA, sum(is.na(x)))))
+}
+
+## Compute the MRCA of tips with indices in 'tips'
+mrca.tipset <- function(phy, tips) {
+  if ( is.character(tips) )
+    tips <- match(tips, phy$tip.label)
+  
+  if ( length(tips) == 1 )
+    tips
+  else {
+    anc <- ancestors(phy, tips)
+    j <- which(apply(anc, 1, function(x) length(unique(x))) > 1)[1]
+    anc[j-1,1]
+  }
+}
+
+## Similar to ape's branching.times(), but returns the height above
+## the root node, even for non-ultrametric trees.  Includes tip times.
+branching.heights <- function(phy) {
+  if (!inherits(phy, "phylo"))
+    stop('object "phy" is not of class "phylo"')
+
+  edge <- phy$edge
+  n.node <- phy$Nnode
+  n.tip <- length(phy$tip.label)
+
+  ht <- numeric(n.node + n.tip) # zero'd
+  for (i in seq_len(nrow(edge)) )
+    ht[edge[i, 2]] <- ht[edge[i, 1]] + phy$edge.length[i]
+
+  ## Ugly, but fairly compatible with branching.times()
+  names.node <- phy$node.label
+  if (is.null(names.node))
+    names.node <- (n.tip + 1):(n.tip + n.node)
+  names(ht) <- c(phy$tip.label, names.node)
+
+  ht
+}
+
+## This only works for ultrametric trees:
+branching.depth <- function(len, children, order, tips) {
+  depth <- numeric(nrow(children))
+  depth[tips] <- 0
+  for ( i in order )
+    depth[i] <- depth[children[i,1]] + len[children[i,1]]
+  depth
+}
+
+## Convert a matrix to a list by row.
+matrix.to.list <- function(m) {
+  n <- nrow(m)
+  out <- vector("list", n)
+  for ( i in seq_len(n) )
+    out[[i]] <- m[i,]
+  out
+}
+
+argnames.twopart <- function(x, base, n.level) {
+  obj <- attr(x, "argnames")
+  if ( is.null(obj) )
+    obj <- list(base=base, levels=seq_len(n.level))
+
+  paste(obj$base, rep(obj$levels, each=length(obj$base)), sep=".")
+}
+
+argnames.twopart.set <- function(x, value, n.base, n.level) {
+  if ( !is.list(value) || length(value) != 2 )
+    stop("'value' must be a list of length 2")
+  if ( length(value[[1]]) != n.base || length(value[[2]] != n.level) )
+    stop(sprintf("value's elements must be of length %d, %d",
+                 n.base, n.level))
+
+  names(value) <- c("base", "levels")
+  attr(x, "argnames") <- value
+  x
+}

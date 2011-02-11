@@ -17,7 +17,7 @@ make.clade.tree <- function(tree, clades) {
 
 ## This takes a state vector and a tree that has been split into
 ## unresolved clades and produces an 'unresolved' data structure.
-make.unresolved <- function(clades, states) {
+make.unresolved.bisse <- function(clades, states) {
   if ( !all(unlist(clades) %in% names(states)) )
     stop("Species in 'clades' do not have states information")
 
@@ -34,7 +34,15 @@ make.unresolved <- function(clades, states) {
   unresolved
 }
 
+make.unresolved.bd <- function(clades)
+  sapply(clades, length)
+
 polytomies.to.clades <- function(tree) {
+  .Deprecated("clades.from.polytomies")
+  clades.from.polytomies(tree)
+}
+
+clades.from.polytomies <- function(tree) {
   from <- tree$edge[,1]
   to   <- tree$edge[,2]
   n.taxa <- length(tree$tip.label)
@@ -104,4 +112,66 @@ ancestors2 <- function(x, tree, tips.only=FALSE) {
     anc[anc <= length(tree$tip.label)]
   else
     anc
+}
+
+## Apply a classification to a tree.  Here 'class' is a character 
+clades.from.classification <- function(tree, class, check=TRUE) {
+  n.tip <- length(tree$tip.label)
+
+  if ( class(class) != "character" )
+    stop("'class' must be a character vector")
+  if ( length(class) != n.tip )
+    stop("'class' must be the same length as the tip.labels")
+
+  ## Doing this, I need to check that all the groups are
+  ## monophyletic.  To do this, I need a MRCA function that takes a
+  ## number of tips.
+  spp.cl <- split(tree$tip.label, class)
+  
+  if ( check ) {
+    mrca <- sapply(spp.cl, function(x)
+                   mrca.tipset(tree, match(x, tree$tip.label)))
+    desc <- lapply(mrca, descendants, tree$edge)
+    chk <- lapply(desc, function(x) tree$tip.label[x[x <= n.tip]])
+    ok <- sapply(seq_along(chk), function(i)
+                 length(setdiff(chk[[i]], spp.cl[[i]]))) == 0
+
+    if ( any(!ok) ) {
+      stop("Some groups had problems: ",
+           paste(names(desc)[!ok], collapse=", "))
+      i <- which(!ok)[1]
+      to.drop <- setdiff(tree$tip.label, chk[[i]])
+      tmp <- drop.tip.fixed(tree, setdiff(tree$tip.label, chk[[i]]))
+      col <- (tmp$tip.label %in% tree$tip.label[class == names(chk)[i]])+1
+      plot2.phylo(tmp, type="f", cex=.5, label.offset=1, font=1,
+                  tip.color=col, no.margin=TRUE)
+      tmp$tip.label[tmp$tip.label %in% tree$tip.label[class == names(chk)[i]]]
+    }
+  }
+
+  to.drop <- unlist(lapply(spp.cl, "[", -1))
+  if ( length(to.drop) > 0 )
+    tree.cl <- drop.tip.fixed(tree, unlist(lapply(spp.cl, "[", -1)))
+  else
+    tree.cl <- tree
+  tmp <- sapply(spp.cl, "[[", 1)
+  tree.cl$tip.label <- names(tmp)[match(tree.cl$tip.label, tmp)]
+
+  make.clade.tree(tree.cl, spp.cl)
+}
+
+## This is all that is required for the plotting now; the rest gets
+## done by the plot-alt code.
+plot.clade.tree <- function(x, as.clade.tree=TRUE, transform=identity,
+                            ...) {
+  if ( abs(transform(1) - 1) > 1e-8 )
+    stop("transform(1) must equal 1")
+  if ( as.clade.tree ) {
+    n.taxa <- transform(sapply(x$clades, length)[x$tip.label])
+    n.taxa[is.na(n.taxa)] <- 1
+    names(n.taxa) <- x$tip.label
+  } else
+    n.taxa <- NULL
+
+  plot2.phylo(x, n.taxa=n.taxa, ...)
 }

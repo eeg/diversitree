@@ -35,6 +35,8 @@ make.mkn <- function(tree, states, k, use.mk2=FALSE) {
 
   ll.mkn <- function(cache, pars, prior=NULL, root=ROOT.OBS,
                      root.p=NULL, intermediates=FALSE) {
+    if ( !is.null(prior) )
+      stop("'prior' argument to likelihood function no longer accepted")
     if ( length(pars) != k*(k-1) )
       stop(sprintf("Invalid length parameters (expected %d)", k*(k-1)))
     if ( any(!is.finite(pars)) || any(pars < 0) )
@@ -42,15 +44,15 @@ make.mkn <- function(tree, states, k, use.mk2=FALSE) {
     qmat[idx] <- pars
     diag(qmat) <- -rowSums(qmat)
     ans <- all.branches.mkn(qmat, cache)
-    d.root <- ans$init[cache$root,]
+    d.root <- ans$init[[cache$root]]
     root.p <- root.p.mkn(d.root, pars, root, root.p)
     loglik <- root.mkn(d.root, ans$lq, root.p)
     if ( intermediates ) {
-      ans$init[seq_len(n.tip),] <- cache$y$y[cache$y$i,]
+      ans$init[seq_len(n.tip)] <- matrix.to.list(cache$y$y[cache$y$i,])
       ans$root.p <- root.p
     }
 
-    cleanup(loglik, pars, prior, intermediates, cache, ans)
+    cleanup(loglik, pars, intermediates, cache, ans)
   }
 
   ll <- function(pars, ...) ll.mkn(cache, pars, ...)
@@ -74,7 +76,10 @@ argnames.mkn <- function(x, k, ...) {
     else
       if ( !is.null(x) )
         stop("k can only be be given if x is null")
-    sprintf("q%d%d", rep(1:k, each=k-1),
+
+    base <- ceiling(log10(k + .5))
+    fmt <- sprintf("q%%0%dd%%0%dd", base, base)
+    sprintf(fmt, rep(1:k, each=k-1),
             unlist(lapply(1:k, function(i) (1:k)[-i])))
   } else {
     ret
@@ -91,6 +96,8 @@ argnames.mk2 <- function(x, ...) {
   k <- environment(x)$cache$k  
   if ( length(value) != k*(k-1) )
     stop("Invalid names length")
+  if ( any(duplicated(value)) )
+    stop("Duplicate argument names")
   attr(x, "argnames") <- value
   x  
 }
@@ -106,17 +113,14 @@ find.mle.mkn <- function(func, x.init, method,
   NextMethod("find.mle", method=method, class.append="fit.mle.mkn")
 }
 
+mcmc.mkn <- mcmc.lowerzero
+
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
 make.cache.mkn <- function(tree, states, k, use.mk2) {
-  if ( !inherits(tree, "phylo") )
-    stop("'tree' must be a valid phylo tree")
-  if ( is.null(names(states)) )
-    stop("The states vector must contain names")
-  if ( !all(tree$tip.label %in% names(states)) )
-    stop("Not all species have state information")
-  states <- states[tree$tip.label]
-  names(states) <- tree$tip.label
+  tree <- check.tree(tree)
+  states <- check.states(tree, states)
+
   cache <- make.cache(tree)
   cache$k <- k
   cache$tip.state  <- states
@@ -191,7 +195,7 @@ root.mkn <- function(vals, lq, root.p) {
 
 ## 7: initial.conditions:
 initial.conditions.mkn <- function(init, pars, t, is.root=FALSE)
-  init[1,] * init[2,]
+  init[[1]] * init[[2]]
 
 ## 8: branches (separate for mk2 and mkn)
 pij.mk2 <- function(len, pars) {
@@ -276,6 +280,8 @@ all.branches.mkn <- function(pars, cache) {
             lq       = lq,
             NAOK=TRUE, DUP=FALSE)
 
-  list(init=t(ans$init), base=t(ans$base), lq=ans$lq, pij=pij)
+  list(init=matrix.to.list(t(ans$init)),
+       base=matrix.to.list(t(ans$base)),
+       lq=ans$lq, pij=pij)
 }
 
