@@ -150,6 +150,7 @@ make.branches.punctsse <- function(k, safe=FALSE) {
 
 # don't see a need for punctsse.Q()
 
+# based on starting.point.geosse()
 starting.point.punctsse <- function(tree, k, eps=0.5) {
   if (eps == 0) {
     s <- (log(Ntip(tree)) - log(2)) / max(branching.times(tree))

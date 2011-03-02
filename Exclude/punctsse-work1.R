@@ -1,3 +1,5 @@
+### Testing the node join, initial.conditions.punctsse() ###
+
 #--------------------------------------------------
 # Set up a parameter vector
 #--------------------------------------------------
