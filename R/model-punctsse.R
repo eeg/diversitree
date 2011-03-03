@@ -99,28 +99,22 @@ mcmc.punctsse <- mcmc.lowerzero
 initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
   n <- length(init[[1]])/2 # called k elsewhere, but k is used as an index below
   nseq <- seq(n)
+  nlam <- n*(n+1)/2
 
   # E_i(t), same for N and M
   e <- init[[1]][nseq]
 
   # D_i(t), formed from N and M
-
-  # indices of node joins
-  idx <- cbind(rep(nseq, each=n*(n+1)/2), 
-               rep(rep(nseq, times=seq(n,1,-1)), n), 
-               unlist(lapply(1:n, function(i) nseq[i:n])))
-
   DM <- init[[1]][(n+1):(2*n)]
   DN <- init[[2]][(n+1):(2*n)]
-  d <- rep(0, n)
-
-  # work through all speciation possibilities
-  for (x in seq(nrow(idx))) {
-    i <- idx[x, 1] # parent
-    j <- idx[x, 2] # daughter 1
-    k <- idx[x, 3] # daughter 2
-    d[i] <- d[i] + pars[x] * 0.5 * (DM[j] * DN[k] + DM[k] * DN[j])
+  j <- rep(nseq, times=seq(n,1,-1))
+  k <- unlist(lapply(1:n, function(i) nseq[i:n]))
+  get.di <- function(i)
+  {
+    x <- seq((i-1)*nlam+1, i*nlam)
+    sum(pars[x] * 0.5 * (DM[j] * DN[k] + DM[k] * DN[j]))
   }
+  d <- sapply(seq(n), get.di)
 
   c(e, d)
 }
