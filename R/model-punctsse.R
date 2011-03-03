@@ -32,7 +32,7 @@ make.punctsse <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
     if ( !is.null(root.p) &&  root != ROOT.GIVEN )
       warning("Ignoring specified root state")
 
-    ll.xxsse(pars, cache, initial.conditions.punctsse, branches,
+    ll.xxsse.punctsse(pars, cache, initial.conditions.punctsse, branches,
              condition.surv, root, root.p, intermediates)
   }
 
@@ -168,4 +168,73 @@ starting.point.punctsse <- function(tree, k, eps=0.5) {
   p <- c( rep(s / (k*(k+1)/2), k*k*(k+1)/2 ), rep(x, k), rep(q, k*(k-1)) )
   names(p) <- argnames.punctsse(NULL, k=k)
   p
+}
+
+## NOTE:
+## Functions below are taken from diversitree-branches.R.  Internal
+## modifications were necessary, but the parent functions could likely be
+## generalized by passing some more functions as arguments.  At the moment,
+## though, separate seems better than integrated.
+
+# modified from diversitree-branches.R: root.p.xxsse()
+#   returned p is always a vector of length k (or NULL)
+#   equilibrium freqs not available even for k = 2
+root.p.punctsse <- function(vals, pars, root, root.p=NULL) {
+  k <- length(vals) / 2
+  d.root <- vals[(k+1):(2*k)]
+
+  if ( root == ROOT.FLAT )
+    p <- rep(1/k, k)
+  else if ( root == ROOT.EQUI )
+    stop("Equilibrium root freqs not available for PunctSSE")
+  else if ( root == ROOT.OBS )
+    p <- d.root / sum(d.root)
+  else if ( root == ROOT.GIVEN ) {
+    if ( length(root.p) != length(d.root) )
+      stop("Invalid length for root.p")
+    p <- root.p
+  } else if ( root == ROOT.ALL )
+    p <- NULL
+  else
+    stop("Invalid root mode")
+  p
+}
+
+## modified from diversitree-branches.R: root.xxsse()
+##   the only difference is lambda
+root.punctsse <- function(vals, pars, lq, condition.surv, root.p) {
+  logcomp <- sum(lq)
+
+  k <- length(vals) / 2
+  i <- seq_len(k)
+
+  e.root <- vals[i]
+  d.root <- vals[-i]
+
+  if ( condition.surv )
+  {
+    # species in state i are subject to all lambda_ijk speciation rates
+    nsum <- k*(k+1)/2
+    lambda <- colSums(matrix(pars[1:(nsum*k)], nrow=nsum))
+    d.root <- d.root / (lambda * (1-e.root)^2)
+  }
+
+  if ( is.null(root.p) ) # ROOT.BOTH
+    loglik <- log(d.root) + logcomp
+  else
+    loglik <- log(sum(root.p * d.root)) + logcomp
+  loglik
+}
+
+## modified from diversitree-branches.R: ll.xxsse()
+##   only difference is names of root function calls (the above functions)
+ll.xxsse.punctsse <- function(pars, cache, initial.conditions,
+                     branches, condition.surv, root, root.p,
+                     intermediates) {
+  ans <- all.branches(pars, cache, initial.conditions, branches)
+  vals <- ans$init[[cache$root]]
+  root.p <- root.p.punctsse(vals, pars, root, root.p)
+  loglik <- root.punctsse(vals, pars, ans$lq, condition.surv, root.p)
+  ans$root.p <- root.p
+  cleanup(loglik, pars, intermediates, cache, ans)
 }

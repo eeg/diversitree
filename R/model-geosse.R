@@ -248,8 +248,8 @@ starting.point.geosse <- function(tree, yule=FALSE) {
 ## NOTE:
 ## Functions below are taken from diversitree-branches.R.  Internal
 ## modifications were necessary, but the parent functions could likely be
-## generalized with the aid of classes.  At the moment, though, separate 
-## seems better than integrated.
+## generalized by passing some more functions as arguments.  At the moment,
+## though, separate seems better than integrated.
 
 # modified from diversitree-branches.R: root.p.xxsse()
 #   allows ROOT.EQUI for geosse
