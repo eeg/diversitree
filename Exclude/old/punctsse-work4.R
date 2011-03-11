@@ -20,7 +20,7 @@ ttn <- read.ttn("geosse-tree.ttn", nodes=T)
 
 # or
 
-# punct-tree.tt = nsf_proposal/prelim_results/punct/set4/tree-100.ttn
+# punct-tree.ttn = nsf_proposal/prelim_results/punct/set4/tree-100.ttn
 # sim params (lam = 6.2, p = 0.2, q = 0; symmetric):
 # lam111 lam112 lam122 lam211 lam212 lam222    mu1    mu2    q12    q21 
 #   4.96   1.24      0      0   1.24   4.96      3      0      0      0
