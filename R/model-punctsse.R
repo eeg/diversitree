@@ -102,11 +102,12 @@ make.initial.conditions.punctsse <- function(n)
 {
   # n = number of states; called k elsewhere but k is used as an index below
   nseq <- seq_len(n)
-  nlam <- n*(n+1)/2   # number of speciation parameters per parent state
+  lam.idx <- matrix(seq_len(n*n*(n+1)/2), byrow=T, nrow=n)
 
   idxD <- (n+1):(2*n)
   j <- rep(nseq, times=seq(n,1,-1))
   k <- unlist(lapply(1:n, function(i) nseq[i:n]))
+  d <- rep(NA, n)
 
   initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
     # E_i(t), same for N and M
@@ -115,13 +116,8 @@ make.initial.conditions.punctsse <- function(n)
     # D_i(t), formed from N and M
     DM <- init[[1]][idxD]
     DN <- init[[2]][idxD]
-
-    get.di <- function(i)
-    {
-      x <- seq((i-1)*nlam+1, i*nlam)
-      sum(pars[x] * 0.5 * (DM[j] * DN[k] + DM[k] * DN[j]))
-    }
-    d <- unlist(lapply(nseq, get.di))
+    DM.DN <- 0.5 * (DM[j] * DN[k] + DM[k] * DN[j])
+    for (i in nseq) d[i] <- sum(pars[lam.idx[i,]] * DM.DN) # slower with apply
 
     c(e, d)
   }

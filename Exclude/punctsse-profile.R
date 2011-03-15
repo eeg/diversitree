@@ -7,7 +7,12 @@ ttn <- read.ttn("tests/geosse-tree.ttn", nodes=T)
 
 lnL.geosse <- make.geosse(ttn$tree, ttn$tip.states)
 pars.geosse <- starting.point.geosse(ttn$tree)
-lnL.geosse(pars.geosse, condition.surv=T)   # -444.926
+pars.geosse[1:7] <- c(1.4, 0.4, 1.1, 0.35, 0.75, 1.6, 0.5)  # to speed things up
+lnL.geosse(pars.geosse, condition.surv=T)   # -386.0813
+
+system.time(find.mle(lnL.geosse, pars.geosse, condition.surv=T))
+#   user  system elapsed 
+# 34.220   0.000  34.241 
 
 Rprof("geosse.out")
 find.mle(lnL.geosse, pars.geosse, condition.surv=T)
@@ -24,131 +29,78 @@ pars.punctsse['q31'] <- pars.geosse['dB']
 
 lnL.punctsse <- make.punctsse(ttn$tree, ttn$tip.states+1, 3)
 lnL.punct.geo <- constrain(lnL.punctsse, lambda111~0, lambda122~0, lambda133~0, lambda211~0, lambda212~0, lambda213~0, lambda223~0, lambda233~0, lambda311~0, lambda312~0, lambda313~0, lambda322~0, lambda323~0, mu1~0, q23~0, q32~0, lambda112~lambda222, lambda113~lambda333, q13~mu2, q12~mu3)
-pars.punct.geo <- pars.punctsse[c(5,10,18, 20,21, 24,26)]  # oops -- was 22,23!
-lnL.punct.geo(pars.punct.geo)
+pars.punct.geo <- pars.punctsse[c(5,10,18, 20,21, 24,26)]
+lnL.punct.geo(pars.punct.geo)   # -386.0813
+
+system.time(find.mle(lnL.punct.geo, pars.punct.geo, condition.surv=T))
+# 49.280   0.010  49.347
+#  user  system elapsed 
+# 64.55    0.06   64.71
 
 Rprof("punctsse-geosse.out")
-find.mle(lnL.punct.geo, pars.punct.geo)
+find.mle(lnL.punct.geo, pars.punct.geo, condition.surv=T)
 Rprof(NULL)
-
-
-prof.geosse <- summaryRprof("geosse.out")
-
-print(str(prof.geosse))
-# List of 4
-#  $ by.self        :'data.frame':        47 obs. of  4 variables:
-#   ..$ self.time : num [1:47] 39.6 37.6 30.5 24.6 18.5 ...
-#   ..$ self.pct  : num [1:47] 16.9 16 13 10.5 7.9 ...
-#   ..$ total.time: num [1:47] 52.3 234.3 75.1 154.7 233.6 ...
-#   ..$ total.pct : num [1:47] 22.3 100 32.1 66 99.7 ...
-#  $ by.total       :'data.frame':        58 obs. of  4 variables:
-#   ..$ total.time: num [1:58] 234 234 234 234 234 ...
-#   ..$ total.pct : num [1:58] 100 100 100 100 100 ...
-#   ..$ self.time : num [1:58] 0 0 0 0 0 ...
-#   ..$ self.pct  : num [1:58] 0 0 0 0 0 ...
-#  $ sample.interval: num 0.02
-#  $ sampling.time  : num 234
 
 library(profr)
 
 prof.geosse <- parse_rprof("geosse.out")
-plot(prof.geosse)
 sort(table(prof.geosse$f))
-# tail end:
-#            inherits     matrix.to.list      is.data.frame              .Call 
-#                 224                233                261                298 
-#          geosse.ode                sum                  t            rowSums 
-#                 318                412                553               1146 
-#  initial.conditions           branches 
-#                1969               3761 
+#     matrix.to.list           inherits      is.data.frame              .Call 
+#                 28                 38                 42                 52 
+#         geosse.ode                sum                  t            rowSums 
+#                 55                 57                 88                167 
+# initial.conditions           branches 
+#                281                527 
 
 prof.punctsse <- parse_rprof("punctsse-geosse.out")
 sort(table(prof.punctsse$f))
-# tail end:
-#        diag<-     unique.default          is.vector             unlist 
-#           920               1295               1628               2536 
-#       rowSums              .Call             unique               pmax 
-#          2704               3004               3119               3359 
-#  punctsse.ode                FUN                  t        seq.default 
-#          4385               5289               5344               6752 
-#        lapply initial.conditions             sapply                seq 
-#          7950               8401               9782               9831 
-#      branches 
-#         15453 
+#     sum             diag<-              .Call                seq 
+#      71                124                267                300 
+# rowSums       punctsse.ode                FUN                  t 
+#     399                422                462                535 
+#  lapply             unlist initial.conditions           branches 
+#     582                646                705               1404 
 
 
 
-# TODO
-# time-trial just lnL computation, but for a large tree
-# try reducing seq and l/sapply, especially in initial.conditions.punctsse -- see if that reduces runtime
+fixInNamespace("make.initial.conditions.punctsse", "diversitreeGP")
 
-pars.geosse[1:7] <- c(2, 3, 1.5, 0.7, 0.8, 1.1, 1.4)
-# use other definitions from above
+# try reshaping pars[lambdas] to allow real vectorization
+lambdas <- matrix(pars[1:(n*n*(n+1)/2)], nrow=n, byrow=T)
+d <- rowSums(lambdas * DM.DN)
 
-# -476.1513
-lnL.geosse(pars.geosse, condition.surv=T)
-lnL.punct.geo(pars.punct.geo, condition.surv=T)
+lambda111 lambda112 lambda113 lambda122 lambda123 lambda133 lambda211 lambda212 
+      0.0       1.4       0.4       0.0       1.1       0.0       0.0       0.0 
+lambda213 lambda222 lambda223 lambda233 lambda311 lambda312 lambda313 lambda322 
+      0.0       1.4       0.0       0.0       0.0       0.0       0.0       0.0 
+lambda323 lambda333 
+      0.0       0.4 
+     [,1] [,2] [,3] [,4] [,5] [,6]
+[1,]    0  1.4  0.4  0.0  1.1  0.0
+[2,]    0  0.0  0.0  1.4  0.0  0.0
+[3,]    0  0.0  0.0  0.0  0.0  0.4
 
-system.time(lnL.geosse(pars.geosse, condition.surv=T))
-  #  user  system elapsed 
-  # 0.060   0.000   0.061
-system.time(lnL.punct.geo(pars.punct.geo, condition.surv=T))
-  #  user  system elapsed 
-  # 0.170   0.000   0.177
+[1] 0.11634555 0.12461659 0.10015749 0.13347296 0.10730019 0.08603294
+     [,1]      [,2]       [,3]      [,4]      [,5]       [,6]
+[1,]    0 0.1868621 0.04653822 0.0000000 0.1279801 0.00000000
+[2,]    0 0.0000000 0.00000000 0.1502203 0.0000000 0.00000000
+[3,]    0 0.0000000 0.00000000 0.0000000 0.0000000 0.03441318
 
-fixInNamespace("initial.conditions.punctsse", "diversitreeGP")
-#
-#   old: d <- sapply(seq(n), get.di)
-#   new: d <- sapply(nseq, get.di)
-#   0.170   0.000   0.168
-#
-#   old: nseq <- seq(n)
-#   new: nseq <- seq_len(n)
-#   0.160   0.010   0.165
-#
-#   sapply isn't really vectorized
-#   old: d <- sapply(nseq, get.di)
-#   new: d <- unlist(lapply(nseq, get.di))
-#   0.150   0.000   0.154 
+i = 1
+lams = pars[1:6]
+DM.DN = c(0.11634555, 0.12461659, 0.10015749, 0.13347296, 0.10730019, 0.08603294)
+sum(lams * DM.DN)
 
-fixInNamespace("make.branches.punctsse", "diversitreeGP")
-#   old: idx.lm <- seq(x)
-#   new: idx.lm <- seq_len(x)
-#   no real difference
+sum(lambdas[1,] * DM.DN)
 
-### This next looks like a big improvement, but messier to implement.
-# store icp.* in cache? then pass to initial.conditions during call from all.branches
-# consider also for make.branches.punctsse
+rowSums(lambdas * DM.DN)
 
-# initial.conditions.punctsse
-# pull out all the index computation that depends only on n
-#   0.110   0.000   0.111 
-icp.n <- 3
-icp.nseq <- seq_len(icp.n)
-icp.nlam <- icp.n*(icp.n+1)/2
-icp.Didx <- (icp.n+1):(2*icp.n)
-icp.j <- rep(icp.nseq, times=seq(icp.n,1,-1))
-icp.k <- unlist(lapply(1:icp.n, function(i) icp.nseq[i:icp.n]))
+rowSums(lambdas * rbind(DM.DN, DM.DN, DM.DN))
 
-initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
-  e <- init[[1]][icp.nseq]
-  DM <- init[[1]][icp.Didx]
-  DN <- init[[2]][icp.Didx]
-  get.di <- function(i)
-  {
-    x <- seq((i-1)*icp.nlam+1, i*icp.nlam)
-    sum(pars[x] * 0.5 * (DM[icp.j] * DN[icp.k] + DM[icp.k] * DN[icp.j]))
-  }
-  d <- unlist(lapply(icp.nseq, get.di))
-  c(e, d)
-}
+matrix(DM.DN, byrow=T, nrow=n, ncol=6)
+rowSums(lambdas * matrix(DM.DN, byrow=T, nrow=n, ncol=6))
+d <- rowSums(lambdas * matrix(DM.DN, byrow=T, nrow=n, ncol=nlambdas/n)) # 52
 
-# make.branches.punctsse is only called during make.punctsse, so don't worry about indices there
-
-# instead of using cache, try wrapping initial.conditions.punctsse (as is done for branches)
-fixInNamespace("make.punctsse", "diversitreeGP")
-  initial.conditions.punctsse <- make.initial.conditions.punctsse(k)
-#   0.110   0.000   0.111 (range 0.110-0.116)
-
-# in punctsse-eqs.c, move index computation out of do_derivs_punctsse
-#   0.090   0.000   0.105
+d <- apply(lambdas, 1, function(i) sum(i * DM.DN))       # 62
+for (i in nseq) d[i] <- sum(pars[lam.idx[i,]] * DM.DN)   # 48
+d <- apply(lam.idx, 1, function(i) sum(pars[i] * DM.DN)) # 62
