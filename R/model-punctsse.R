@@ -98,7 +98,7 @@ mcmc.punctsse <- mcmc.lowerzero
 ## 7: initial.conditions:
 initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
   n <- length(init[[1]])/2 # called k elsewhere, but k is used as an index below
-  nseq <- seq(n)
+  nseq <- seq_len(n)
   nlam <- n*(n+1)/2
 
   # E_i(t), same for N and M
@@ -114,7 +114,7 @@ initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
     x <- seq((i-1)*nlam+1, i*nlam)
     sum(pars[x] * 0.5 * (DM[j] * DN[k] + DM[k] * DN[j]))
   }
-  d <- sapply(seq(n), get.di)
+  d <- unlist(lapply(nseq, get.di))
 
   c(e, d)
 }
@@ -127,7 +127,7 @@ make.branches.punctsse <- function(k, safe=FALSE) {
   idx.qmat <- cbind(rep(1:k, each=k-1),
                unlist(lapply(1:k, function(i) (1:k)[-i])))
   x <- k * k * (k + 1) / 2 + k
-  idx.lm <- seq(x)
+  idx.lm <- seq_len(x)
   idx.q <- seq(x+1, (k+3)*k*k/2)
 
   punctsse.ode <- make.ode("derivs_punctsse", "diversitreeGP",
