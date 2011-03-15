@@ -33,9 +33,8 @@ pars.punct.geo <- pars.punctsse[c(5,10,18, 20,21, 24,26)]
 lnL.punct.geo(pars.punct.geo)   # -386.0813
 
 system.time(find.mle(lnL.punct.geo, pars.punct.geo, condition.surv=T))
-# 49.280   0.010  49.347
 #  user  system elapsed 
-# 64.55    0.06   64.71
+# 49.280   0.010  49.347
 
 Rprof("punctsse-geosse.out")
 find.mle(lnL.punct.geo, pars.punct.geo, condition.surv=T)
@@ -54,53 +53,9 @@ sort(table(prof.geosse$f))
 
 prof.punctsse <- parse_rprof("punctsse-geosse.out")
 sort(table(prof.punctsse$f))
-#     sum             diag<-              .Call                seq 
-#      71                124                267                300 
-# rowSums       punctsse.ode                FUN                  t 
-#     399                422                462                535 
-#  lapply             unlist initial.conditions           branches 
-#     582                646                705               1404 
-
-
-
-fixInNamespace("make.initial.conditions.punctsse", "diversitreeGP")
-
-# try reshaping pars[lambdas] to allow real vectorization
-lambdas <- matrix(pars[1:(n*n*(n+1)/2)], nrow=n, byrow=T)
-d <- rowSums(lambdas * DM.DN)
-
-lambda111 lambda112 lambda113 lambda122 lambda123 lambda133 lambda211 lambda212 
-      0.0       1.4       0.4       0.0       1.1       0.0       0.0       0.0 
-lambda213 lambda222 lambda223 lambda233 lambda311 lambda312 lambda313 lambda322 
-      0.0       1.4       0.0       0.0       0.0       0.0       0.0       0.0 
-lambda323 lambda333 
-      0.0       0.4 
-     [,1] [,2] [,3] [,4] [,5] [,6]
-[1,]    0  1.4  0.4  0.0  1.1  0.0
-[2,]    0  0.0  0.0  1.4  0.0  0.0
-[3,]    0  0.0  0.0  0.0  0.0  0.4
-
-[1] 0.11634555 0.12461659 0.10015749 0.13347296 0.10730019 0.08603294
-     [,1]      [,2]       [,3]      [,4]      [,5]       [,6]
-[1,]    0 0.1868621 0.04653822 0.0000000 0.1279801 0.00000000
-[2,]    0 0.0000000 0.00000000 0.1502203 0.0000000 0.00000000
-[3,]    0 0.0000000 0.00000000 0.0000000 0.0000000 0.03441318
-
-i = 1
-lams = pars[1:6]
-DM.DN = c(0.11634555, 0.12461659, 0.10015749, 0.13347296, 0.10730019, 0.08603294)
-sum(lams * DM.DN)
-
-sum(lambdas[1,] * DM.DN)
-
-rowSums(lambdas * DM.DN)
-
-rowSums(lambdas * rbind(DM.DN, DM.DN, DM.DN))
-
-matrix(DM.DN, byrow=T, nrow=n, ncol=6)
-rowSums(lambdas * matrix(DM.DN, byrow=T, nrow=n, ncol=6))
-d <- rowSums(lambdas * matrix(DM.DN, byrow=T, nrow=n, ncol=nlambdas/n)) # 52
-
-d <- apply(lambdas, 1, function(i) sum(i * DM.DN))       # 62
-for (i in nseq) d[i] <- sum(pars[lam.idx[i,]] * DM.DN)   # 48
-d <- apply(lam.idx, 1, function(i) sum(pars[i] * DM.DN)) # 62
+# inherits              .Call      is.data.frame              cbind 
+#       47                 52                 56                 59 
+#   diag<-       punctsse.ode                  t initial.conditions 
+#      126                155                288                360 
+#  rowSums           branches 
+#      366                651 
