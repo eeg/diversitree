@@ -123,7 +123,6 @@ fixInNamespace("make.branches.punctsse", "diversitreeGP")
 # initial.conditions.punctsse
 # pull out all the index computation that depends only on n
 #   0.110   0.000   0.111 
-
 icp.n <- 3
 icp.nseq <- seq_len(icp.n)
 icp.nlam <- icp.n*(icp.n+1)/2
@@ -143,3 +142,11 @@ initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
   d <- unlist(lapply(icp.nseq, get.di))
   c(e, d)
 }
+
+# make.branches.punctsse is only called during make.punctsse, so don't worry about indices there
+
+# instead of using cache, try wrapping initial.conditions.punctsse (as is done for branches)
+
+fixInNamespace("make.punctsse", "diversitreeGP")
+  initial.conditions.punctsse <- make.initial.conditions.punctsse(k)
+# works!    0.110   0.000   0.111 (range 0.110-0.116)

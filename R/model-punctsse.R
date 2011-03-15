@@ -20,6 +20,7 @@ make.punctsse <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
                        safe=FALSE) {
   cache <- make.cache.musse(tree, states, k, sampling.f, strict)
   branches <- make.branches.punctsse(k, safe)
+  initial.conditions.punctsse <- make.initial.conditions.punctsse(k)
 
   ll.punctsse <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
                        root.p=NULL, intermediates=FALSE) {
@@ -96,27 +97,34 @@ mcmc.punctsse <- mcmc.lowerzero
 ## 6: ll.punctsse is done within make.punctsse
 
 ## 7: initial.conditions:
-initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
-  n <- length(init[[1]])/2 # called k elsewhere, but k is used as an index below
+# save on index computations by wrappping initial.conditions.punctsse
+make.initial.conditions.punctsse <- function(n)
+{
+  # n = number of states; called k elsewhere but k is used as an index below
   nseq <- seq_len(n)
-  nlam <- n*(n+1)/2
+  nlam <- n*(n+1)/2   # number of speciation parameters per parent state
 
-  # E_i(t), same for N and M
-  e <- init[[1]][nseq]
-
-  # D_i(t), formed from N and M
-  DM <- init[[1]][(n+1):(2*n)]
-  DN <- init[[2]][(n+1):(2*n)]
+  idxD <- (n+1):(2*n)
   j <- rep(nseq, times=seq(n,1,-1))
   k <- unlist(lapply(1:n, function(i) nseq[i:n]))
-  get.di <- function(i)
-  {
-    x <- seq((i-1)*nlam+1, i*nlam)
-    sum(pars[x] * 0.5 * (DM[j] * DN[k] + DM[k] * DN[j]))
-  }
-  d <- unlist(lapply(nseq, get.di))
 
-  c(e, d)
+  initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
+    # E_i(t), same for N and M
+    e <- init[[1]][nseq]
+
+    # D_i(t), formed from N and M
+    DM <- init[[1]][idxD]
+    DN <- init[[2]][idxD]
+
+    get.di <- function(i)
+    {
+      x <- seq((i-1)*nlam+1, i*nlam)
+      sum(pars[x] * 0.5 * (DM[j] * DN[k] + DM[k] * DN[j]))
+    }
+    d <- unlist(lapply(nseq, get.di))
+
+    c(e, d)
+  }
 }
 
 ## 8: branches
