@@ -146,7 +146,9 @@ initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
 # make.branches.punctsse is only called during make.punctsse, so don't worry about indices there
 
 # instead of using cache, try wrapping initial.conditions.punctsse (as is done for branches)
-
 fixInNamespace("make.punctsse", "diversitreeGP")
   initial.conditions.punctsse <- make.initial.conditions.punctsse(k)
-# works!    0.110   0.000   0.111 (range 0.110-0.116)
+#   0.110   0.000   0.111 (range 0.110-0.116)
+
+# in punctsse-eqs.c, move index computation out of do_derivs_punctsse
+#   0.090   0.000   0.105
