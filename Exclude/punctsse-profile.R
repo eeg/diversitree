@@ -59,3 +59,7 @@ sort(table(prof.punctsse$f))
 #      126                155                288                360 
 #  rowSums           branches 
 #      366                651 
+
+
+fixInNamespace("make.initial.conditions.punctsse", "diversitreeGP")
+

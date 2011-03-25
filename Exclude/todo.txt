@@ -1,0 +1,17 @@
+mail from Rich, Jan 2010
+
+I have the full punctuational change with multi-state characters done, as part of the HIV project.  Though with no phyletic character change along branches in that case.  Not sure when it will hit the package, but it will be at least after the paper is submitted.  I think getting the punctuational change done wasn't too bad; the initial.conditions function looks like this:
+
+initial.conditions.bdp2 <- function(init, pars, t, is.root=FALSE) {
+  k <- ncol(init)/2
+  e <- init[1,1:k]
+  d <- init[,(k+1):(2*k)]
+  dd <- outer(d[1,], d[2,])
+  ll <- matrix(pars[(2*k+1):((k+1)*(k+1)-1)], k, k)
+  d <- colSums(ll * (dd + t(dd)))
+  c(e, d)
+}
+
+(for k states, the first k columns of init are Es, the second k are Ds; this computes the outer product of the Ds.  The matrix
+  ll <- matrix(pars[(2*k+1):((k+1)*(k+1)-1)], k, k)
+are the k*k possible speciation induced transitions.)

@@ -119,6 +119,15 @@ make.initial.conditions.punctsse <- function(n)
     DM.DN <- 0.5 * (DM[j] * DN[k] + DM[k] * DN[j])
     for (i in nseq) d[i] <- sum(pars[lam.idx[i,]] * DM.DN) # slower with apply
 
+    # a touch slower but cleaner:
+    #   idxlam = seq_len(n*n*(n+1)/2)
+    #     d = colSums(matrix(pars[idxlam], ncol=n) * DM.DN)
+    # or slightly better (but still not faster than for):
+    #   lamseq = seq_len(n*n*(n+1)/2)
+    #   lam.mat = matrix(lamseq, ncol=n)
+    #     lam.mat[lamseq] = pars[lamseq]
+    #     d = colSums(lam.mat * DM.DN)
+
     c(e, d)
   }
 }
