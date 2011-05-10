@@ -223,7 +223,8 @@ root.punctsse <- function(vals, pars, lq, condition.surv, root.p) {
     # species in state i are subject to all lambda_ijk speciation rates
     nsum <- k*(k+1)/2
     lambda <- colSums(matrix(pars[1:(nsum*k)], nrow=nsum))
-    d.root <- d.root / (lambda * (1-e.root)^2)
+    # d.root <- d.root / (lambda * (1-e.root)^2) # old
+    d.root <- d.root / sum(root.p * lambda * (1 - e.root)^2)
   }
 
   if ( is.null(root.p) ) # ROOT.BOTH

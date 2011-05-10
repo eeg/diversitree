@@ -82,7 +82,7 @@ names(pars3.punct) <- argnames(lnL3.punctsse)
 test.lnL1 <- function()
 {
     argvals <- list(condition.surv=T)
-    ans <- -284.9825
+    ans <- -284.9406 # -284.9825
     checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans,
                 tolerance=tol)
     checkEquals(do.call(lnL1.punctsse, c(list(pars1.punctsse), argvals)), ans,
@@ -100,7 +100,7 @@ test.lnL1 <- function()
                 tolerance=tol)
 
     argvals <- list(condition.surv=T, root=ROOT.GIVEN, root.p=c(0.6, 0.4))
-    ans <- -285.2641
+    ans <- -285.0867 # -285.2641
     checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans,
                 tolerance=tol)
     checkEquals(do.call(lnL1.punctsse, c(list(pars1.punctsse), argvals)), ans,
@@ -112,7 +112,7 @@ test.lnL1 <- function()
 test.lnL2 <- function()
 {
     argvals <- list(condition.surv=T)
-    ans <- -387.1200
+    ans <- -387.278 # -387.1200
     checkEquals(do.call(lnL2.geosse, c(list(pars2.geosse), argvals)), ans,
                 tolerance=tol)
     checkEquals(do.call(lnL2.punctsse, c(list(pars2.punctsse), argvals)), ans,
@@ -132,5 +132,5 @@ test.lnL2 <- function()
 
 test.lnL3 <- function()
 {
-    checkEquals(lnL3.punctsse(pars3.punct), 36.75776, tolerance=tol)
+    checkEquals(lnL3.punctsse(pars3.punct), 36.75782, tolerance=tol) # 36.75776
 }
