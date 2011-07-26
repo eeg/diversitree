@@ -132,6 +132,9 @@ all.branches <- function(pars, cache, initial.conditions, branches) {
     y.in <- initial.conditions(branch.base[children[i,]], pars, depth[i])
     if ( !all(is.finite(y.in)) )
       stop("Bad initial conditions: calculation failure along branches?")
+    # NOTE: insert node.fixing here
+    #       a <- node.fixing[i]
+    #       y.in[D components] <- y.in[D components] * c(1-a, a)[but generalize for more states]
     branch.init[[i]] <- y.in
     ans <- branches(y.in, len[i], pars, depth[i])
     lq[i] <- ans[1]
@@ -141,6 +144,7 @@ all.branches <- function(pars, cache, initial.conditions, branches) {
   ## This also changes to reflect the change in argument order.
   y.in <- initial.conditions(branch.base[children[root,]], pars,
                              depth[root], TRUE)
+  # NOTE: insert node.fixing here (adjust y.in as above)
   branch.init[[root]] <- y.in
   list(init=branch.init, base=branch.base, lq=lq)
 }
