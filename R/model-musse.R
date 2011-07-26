@@ -12,29 +12,35 @@
 ## 1: make
 make.musse <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
                        control=list()) {
-  control <- modifyList(list(safe=FALSE, tol=1e-8, eps=0), control)  
-  cache <- make.cache.musse(tree, states, k, sampling.f, strict)
-  branches <- make.branches.musse(k, control$safe, control$tol,
-                                  control$eps)
+  control <- check.control.ode(control)
+  backend <- control$backend
 
+  cache <- make.cache.musse(tree, states, k, sampling.f, strict)
+
+  if ( backend == "CVODES" )
+    all.branches <- make.all.branches.C.musse(cache, control)
+  else
+    branches <- make.branches.musse(cache, control)
+
+  f.pars <- make.musse.pars(k)
+  
   ll.musse <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
                        root.p=NULL, intermediates=FALSE) {
-    if ( length(pars) != k*(k+1) )
-      stop(sprintf("Invalid length parameters (expected %d)",
-                   k*(k+1)))
-    if ( any(!is.finite(pars)) || any(pars < 0) )
-      return(-Inf)
+    check.pars.musse(pars, k)
     if ( !is.null(root.p) &&  root != ROOT.GIVEN )
       warning("Ignoring specified root state")
 
-    ll.xxsse(pars, cache, initial.conditions.musse, branches,
-             condition.surv, root, root.p, intermediates)
+    if ( backend == "CVODES" )
+      ll.xxsse.C(f.pars(pars), all.branches,
+                 condition.surv, root, root.p, intermediates)
+    else
+      ll.xxsse(f.pars(pars), cache, initial.conditions.musse, branches,
+               condition.surv, root, root.p, intermediates)
   }
 
-  ll <- function(pars, ...) ll.musse(pars, ...)
-  class(ll) <- c("musse", "function")
-  attr(ll, "k") <- k
-  ll
+  class(ll.musse) <- c("musse", "function")
+  attr(ll.musse, "k") <- k
+  ll.musse
 }
 
 ## 2: print
@@ -89,8 +95,9 @@ make.cache.musse <- function(tree, states, k, sampling.f=NULL,
   sampling.f <- check.sampling.f(sampling.f, k)
 
   cache <- make.cache(tree)
-  cache$tip.state <- states
+  cache$ny <- 2*k
   cache$k <- k
+  cache$tip.state <- states
   cache$sampling.f <- sampling.f
   cache$y <- initial.tip.musse(cache)
   cache
@@ -122,60 +129,48 @@ initial.tip.musse <- function(cache) {
 
 ## 7: initial.conditions:
 initial.conditions.musse <- function(init, pars, t, is.root=FALSE) {
-  k <- length(init[[1]])/2
+  k <- nrow(init)/2
   i <- seq_len(k)
   j <- i + k
 
-  c(init[[1]][i],
-    init[[1]][j] * init[[2]][j] * pars[i])
+  c(init[i,1],
+    init[j,1] * init[j,2] * pars[i])
 }
 
-## 8: branches (separate for mk2 and mkn)
-make.branches.musse <- function(k, safe=FALSE, tol=1e-8, eps=0) {
-  RTOL <- ATOL <- tol
+## 8: branches
+make.branches.musse <- function(cache, control) {
+  k <- cache$k
+  if ( k == 2 )
+    warning("Two states is faster with BiSSE")
+  np <- as.integer(k * (k + 2))
+  neq <- as.integer(2 * k)
+  comp.idx <- as.integer((k+1):(2*k))
+  make.ode.branches("musse", "diversitreeGP", neq, np, comp.idx,
+                    control)
+}
 
+make.all.branches.C.musse <- function(cache, control) {
+  k <- cache$k
+  np <- as.integer(k * (k + 2))
+  neq <- as.integer(2 * k)
+  comp.idx <- as.integer((k+1):(2*k))
+ 
+  make.all.branches.C(cache, "musse", "diversitreeGP",
+                      neq, np, comp.idx, control)
+}
+
+## Additional functions:
+make.musse.pars <- function(k) {
   qmat <- matrix(0, k, k)
   idx.qmat <- cbind(rep(1:k, each=k-1),
                unlist(lapply(1:k, function(i) (1:k)[-i])))
   idx.lm <- 1:(2*k)
   idx.q <- (2*k+1):(k*(1+k))
 
-  if ( k == 2 )
-    warning("Two states is faster with BiSSE")
-  musse.ode <- make.ode("derivs_musse", "diversitreeGP",
-                        "initmod_musse", 2*k, FALSE)
-
-  branches.musse <- function(y, len, pars, t0) {
+  function(pars) {
     qmat[idx.qmat] <- pars[idx.q]
     diag(qmat) <- -rowSums(qmat)
-    pars <- c(pars[idx.lm], qmat)
-    t(musse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
-  }
-  make.branches(branches.musse, (k+1):(2*k), eps)
-}
-
-## Historical interest: This function creates a function for computing
-## derivatives under MuSSE.
-make.musse.eqs.R <- function(k) {
-  qmat <- matrix(0, k, k)
-  idx.qmat <- cbind(rep(1:k, each=k-1),
-               unlist(lapply(1:k, function(i) (1:k)[-i])))
-  idx.e <- 1:k
-  idx.d <- (k+1):(2*k)
-  idx.l <- 1:k
-  idx.m <- (k+1):(2*k)
-  idx.q <- (2*k+1):(k*(1+k))
-
-  function(t, y, parms, ...) {
-    e <- y[idx.e]
-    d <- y[idx.d]
-    lambda <- parms[idx.l]
-    mu     <- parms[idx.m]
-    qmat[idx.qmat] <- parms[idx.q]  
-    diag(qmat) <- -rowSums(qmat)
-
-    list(c(mu - (lambda + mu) * e + lambda * e * e + qmat %*% e,
-           -(lambda + mu) * d + 2 * lambda * d * e + qmat %*% d))
+    c(pars[idx.lm], qmat)
   }
 }
 
@@ -194,6 +189,7 @@ musse.Q <- function(pars, k) {
   qmat
 }
 
+## Heuristic starting point
 starting.point.musse <- function(tree, k, q.div=5, yule=FALSE) {
   pars.bd <- suppressWarnings(starting.point.bd(tree, yule))
   r <- if  ( pars.bd[1] > pars.bd[2] )

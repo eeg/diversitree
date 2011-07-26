@@ -14,16 +14,50 @@
 make.bisse.split <- function(tree, states, nodes, split.t,
                              unresolved=NULL, sampling.f=NULL,
                              nt.extra=10, control=list()) {
-  control <- modifyList(list(safe=FALSE, tol=1e-8, eps=0), control)
+  control <- check.control.ode(control)
+  if ( control$backend == "CVODES" )
+    stop("Cannot use CVODES backend with bisse.split")
+
   cache <- make.cache.bisse.split(tree, states, nodes, split.t,
                                   unresolved, sampling.f, nt.extra)
-  branches <- make.branches.bisse(control$safe, control$tol,
-                                  control$eps)
-  branches.aux <- make.branches.aux.bisse(cache$sampling.f,
-                                          control$safe, control$tol,
-                                          control$eps)
-  ll <- function(pars, ...)
-    ll.bisse.split(cache, pars, branches, branches.aux, ...)
+
+  branches <- make.branches.bisse(cache, control)
+  branches.aux <- make.branches.aux.bisse(cache, control)
+
+  n.part <- cache$n.part
+
+  ll <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
+                 root.p=NULL, intermediates=FALSE) {
+    pars <- check.par.multipart(pars, n.part, 6)
+    pars.n <- unlist(pars)
+    if ( any(pars.n < 0) || any(!is.finite(pars.n)) )
+      return(-Inf)
+
+    for ( i in seq_len(n.part) ) {
+      unresolved.i <- cache$cache[[i]]$unresolved
+      if ( !is.null(unresolved.i) )
+        cache$cache[[i]]$preset <-
+          branches.unresolved.bisse(pars[[i]], unresolved.i)
+    }
+
+    ans <- all.branches.split(pars, cache, initial.conditions.bisse,
+                              branches, branches.aux, FALSE)
+
+    vals <- ans[[1]]$base
+    lq <- unlist(lapply(ans, "[[", "lq"))
+
+    pars.root <- pars[[1]]
+    root.p <- root.p.xxsse(vals, pars.root, root, root.p)
+    loglik <- root.xxsse(vals, pars.root, lq, condition.surv, root.p)
+
+    if ( intermediates ) {
+      ans$root.p <- root.p
+      attr(loglik, "intermediates") <- ans
+      attr(loglik, "vals") <- vals
+    }
+    loglik
+  }
+
   class(ll) <- c("bisse.split", "bisse", "function")
   attr(ll, "n.part") <- cache$n.part
   ll
@@ -44,7 +78,14 @@ argnames.bisse.split <- function(x, n.part=attr(x, "n.part"), ...) {
   argnames.twopart.set(x, value, 6, n.part)
 }
 
-## 4: find.mle: from bisse
+## 4: find.mle
+find.mle.bisse.split <- function(func, x.init, method, fail.value=NA,
+                                 ...) {
+  if ( missing(method) )
+    method <- "subplex"
+  NextMethod("find.mle", method=method,
+             class.append="fit.mle.bisse.split")
+}
 
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
@@ -60,19 +101,15 @@ make.cache.bisse.split <- function(tree, states, nodes, split.t,
   ## Check 'sampling.f'
   if ( !is.null(sampling.f) && !is.null(unresolved) )
     stop("Cannot specify both sampling.f and unresolved")
-  ## TODO: a sampling.f of length 2 can be expanded manually.
   n <- length(nodes) + 1 # +1 for base group
-  if ( is.list(sampling.f) ) {
-    check.sampling.f(unlist(sampling.f), 2*n)
-  } else {
-    sampling.f <- check.sampling.f(sampling.f, 2 * n)
-    sampling.f <- matrix.to.list(matrix(sampling.f, n, 2, TRUE))
-  }
+  sampling.f <- check.sampling.f.split(sampling.f, 2, n)
 
   cache <- make.cache.split(tree, nodes, split.t)
 
   for ( i in seq_along(cache$cache) ) {
     x <- cache$cache[[i]]
+    x$ny <- 4L
+    x$k <- 2L
     x$tip.state  <- states[x$tip.label]
     x$sampling.f <- sampling.f[[i]]
 
@@ -97,57 +134,19 @@ make.cache.bisse.split <- function(tree, states, nodes, split.t,
   cache
 }
 
-ll.bisse.split <- function(cache, pars, branches, branches.aux,
-                           condition.surv=TRUE, root=ROOT.OBS,
-                           root.p=NULL, intermediates=FALSE) {
-  n.part <- cache$n.part
-
-  pars <- check.par.multipart(pars, n.part, 6)
-
-  pars.n <- unlist(pars)
-  if ( any(pars.n < 0) || any(!is.finite(pars.n)) )
-    return(-Inf)
-
-  for ( i in seq_len(n.part) ) {
-    unresolved.i <- cache$cache[[i]]$unresolved
-    if ( !is.null(unresolved.i) )
-      cache$cache[[i]]$preset <-
-        branches.unresolved.bisse(pars[[i]], unresolved.i)
-  }
-
-  ans <- all.branches.split(pars, cache, initial.conditions.bisse,
-                            branches, branches.aux)
-
-  vals <- ans[[1]]$base
-  lq <- unlist(lapply(ans, "[[", "lq"))
-
-  pars.root <- pars[[1]]
-  root.p <- root.p.xxsse(vals, pars.root, root, root.p)
-  loglik <- root.xxsse(vals, pars.root, lq, condition.surv, root.p)
-
-  ans$root.p <- root.p
-  cleanup(loglik, pars, intermediates, cache, ans)
-}
-
 ## 7: initial.conditions: from bisse
 
 ## 8: branches: from bisse.  However the 'branches.aux' function is
 ## required to compute the E0, E1 values after a partition.
-
-## TODO: this would be nicer if it did not compute the Ds at all.
-## Also, it can just use the non-clever function as I do not need the
-## log compensation worked out.
-make.branches.aux.bisse <- function(sampling.f, safe=FALSE, tol=1e-8,
-                                    eps=0) {
-  y <- lapply(sampling.f, function(x) c(1-x, 1, 1))
-  branches <- make.branches.bisse(safe, tol, eps)
+make.branches.aux.bisse <- function(cache, control) {
+  idx.e <- 1:2
+  y <- lapply(cache$sampling.f, function(x) c(1-x, 1, 1))
   n <- length(y)
-  branches.aux.bisse <- function(i, len, pars) {
+  branches <- make.branches.bisse(cache, control)
+
+  function(i, len, pars) {
     if ( i > n )
       stop("No such partition")
-    branches(y[[i]], len, pars, 0)[,2:3,drop=FALSE]
+    branches(y[[i]], len, pars, 0)[[2]][idx.e,,drop=FALSE]
   }
 }
-
-
-## 9: branches.unresolved: from bisse

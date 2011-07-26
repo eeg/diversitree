@@ -14,16 +14,40 @@
 ## 1: make
 make.geosse <- function(tree, states, sampling.f=NULL, strict=TRUE,
                         control=list()) {
-  ## RGF: Removed from argument list to reflect docs.
+  control <- check.control.ode(control)
+  backend <- control$backend
+
   unresolved <- NULL
   nt.extra <- 10
-  control <- modifyList(list(safe=FALSE, tol=1e-8, eps=0), control)  
   cache <- make.cache.geosse(tree, states, unresolved=unresolved,
                              sampling.f=sampling.f, nt.extra=nt.extra,
                              strict=strict)
-  branches <- make.branches.geosse(control$safe, control$tol,
-                                   control$eps)
-  ll <- function(pars, ...) ll.geosse(cache, pars, branches, ...)
+
+  if ( backend == "CVODES" )
+    all.branches <- make.all.branches.C.geosse(cache, control)
+  else
+    branches <- make.branches.geosse(cache, control)
+
+  ## (note: condition.surv=TRUE in bisse)  
+  ll <- function(pars, condition.surv=FALSE, root=ROOT.OBS,
+                 root.p=NULL, intermediates=FALSE) {
+    if ( length(pars) != 7 )
+      stop("Invalid parameter length (expected 7)")
+    if ( any(pars < 0) || any(!is.finite(pars)))
+      return(-Inf)
+    if ( !is.null(root.p) && root != ROOT.GIVEN )
+      warning("Ignoring specified root state")
+
+    ## would need something here for unresolved
+
+    if ( backend == "CVODES" )
+      ll.xxsse.geosse.C(pars, all.branches,
+                        condition.surv, root, root.p, intermediates)
+    else
+      ll.xxsse.geosse(pars, cache, initial.conditions.geosse, branches,
+                      condition.surv, root, root.p, intermediates)
+  }
+
   class(ll) <- c("geosse", "function")
   ll
 }
@@ -87,6 +111,7 @@ make.cache.geosse <- function(tree, states, unresolved=NULL,
     sampling.f <- check.sampling.f(sampling.f, 3)
 
   cache <- make.cache(tree)
+  cache$ny <- 6L
   cache$tip.state  <- states
   cache$sampling.f <- sampling.f
   ##cache$unresolved <- unresolved # would need more here
@@ -127,52 +152,40 @@ initial.tip.geosse <- function(cache) {
   dt.tips.grouped(y, y.i, tips, cache$len[tips])
 }
 
-## 6: ll (note: condition.surv=TRUE in bisse)
-ll.geosse <- function(cache, pars, branches, prior=NULL,
-                      condition.surv=FALSE, root=ROOT.OBS, root.p=NULL,
-                      intermediates=FALSE) {
-  if ( !is.null(prior) )
-    stop("'prior' argument to likelihood function no longer accepted")
-  if ( length(pars) != 7 )
-    stop("Invalid parameter length (expected 7)")
-  if ( any(pars < 0) || any(!is.finite(pars)))
-    return(-Inf)
-
-  if ( !is.null(root.p) && root != ROOT.GIVEN )
-    warning("Ignoring specified root state")
-
-  ## would need something here for unresolved
-
-  ll.xxsse.geosse(pars, cache, initial.conditions.geosse, branches,
-           condition.surv, root, root.p, intermediates)
-}
+## 6: ll
 
 ## 7: initial.conditions:
 initial.conditions.geosse <- function(init, pars, t, is.root=FALSE) {
   ## E.0, E.1, E.2
-  e <- init[[1]][c(1,2,3)]
+  e <- init[c(1,2,3),1]
 
   ## D.1, D.2  (Eq. 6bc)
-  d12 <- init[[1]][c(5,6)] * init[[2]][c(5,6)] * pars[c(1,2)]
+  d12 <- init[c(5,6),1] * init[c(5,6),2] * pars[c(1,2)]
 
   ## D.0 (Eq. 6a)
-  d0 <- 0.5 * sum(init[[1]][c(4,5)] * init[[2]][c(5,4)] * pars[1] + 
-                  init[[1]][c(4,6)] * init[[2]][c(6,4)] * pars[2] +
-                  init[[1]][c(5,6)] * init[[2]][c(6,5)] * pars[3])
+  d0 <- 0.5 * sum(init[c(4,5),1] * init[c(5,4),2] * pars[1] + 
+                  init[c(4,6),1] * init[c(6,4),2] * pars[2] +
+                  init[c(5,6),1] * init[c(6,5),2] * pars[3])
   d <- c(d0, d12)
 
   c(e, d)
 }
 
 ## 8: branches
-make.branches.geosse <- function(safe=FALSE, tol=1e-8, eps=0) {
-  RTOL <- ATOL <- tol
-  geosse.ode <- make.ode("derivs_geosse", "diversitreeGP",
-                         "initmod_geosse", 6, safe)
-  branches <- function(y, len, pars, t0)
-    t(geosse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
-  
-  make.branches(branches, 4:6, eps)
+make.branches.geosse <- function(cache, control) {
+  neq <- 6L
+  np <- 7L
+  comp.idx <- as.integer(4:6)
+  make.ode.branches("geosse", "diversitreeGP", neq, np, comp.idx,
+                    control)
+}
+
+make.all.branches.C.geosse <- function(cache, control) {
+  neq <- 6L
+  np <- 7L
+  comp.idx <- as.integer(4:6)
+  make.all.branches.C(cache, "geosse", "diversitreeGP",
+                      neq, np, comp.idx, control)
 }
 
 ## 9: branches.unresolved
@@ -306,12 +319,35 @@ root.geosse <- function(vals, pars, lq, condition.surv, root.p) {
 ## modified from diversitree-branches.R: ll.xxsse()
 ##   only difference is names of root function calls (the above functions)
 ll.xxsse.geosse <- function(pars, cache, initial.conditions,
-                     branches, condition.surv, root, root.p,
-                     intermediates) {
-  ans <- all.branches(pars, cache, initial.conditions, branches)
-  vals <- ans$init[[cache$root]]
+                            branches, condition.surv, root, root.p,
+                            intermediates) {
+  ans <- all.branches.matrix(pars, cache, initial.conditions, branches)
+  vals <- ans$init[,cache$root]
   root.p <- root.p.geosse(vals, pars, root, root.p)
   loglik <- root.geosse(vals, pars, ans$lq, condition.surv, root.p)
-  ans$root.p <- root.p
-  cleanup(loglik, pars, intermediates, cache, ans)
+
+  if ( intermediates ) {
+    ans$root.p <- root.p
+    attr(loglik, "intermediates") <- ans
+    attr(loglik, "vals") <- vals
+  }
+
+  loglik
+}
+
+ll.xxsse.geosse.C <- function(pars, all.branches,
+                              condition.surv, root, root.p,
+                              intermediates) {
+  ans <- all.branches(pars, intermediates)
+  vals <- ans[[2]]
+  root.p <- root.p.geosse(vals, pars, root, root.p)
+  loglik <- root.geosse(vals, pars, ans[[1]], condition.surv, root.p)
+
+  if ( intermediates ) {
+    ans$intermediates$root.p <- root.p
+    attr(loglik, "intermediates") <- ans$intermediates
+    attr(loglik, "vals") <- vals
+  }
+
+  loglik
 }

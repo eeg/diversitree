@@ -1,11 +1,11 @@
 \name{asr-mkn}
-\alias{asr.mkn}
-\alias{asr.marginal.mk2}
-\alias{asr.marginal.mkn}
-\alias{asr.joint.mk2}
-\alias{asr.joint.mkn}
-\alias{asr.stoch.mk2}
-\alias{asr.stoch.mkn}
+\alias{asr.mkn} % for cross referencing
+\alias{make.asr.marginal.mk2}
+\alias{make.asr.joint.mk2}
+\alias{make.asr.stoch.mk2}
+\alias{make.asr.marginal.mkn}
+\alias{make.asr.joint.mkn}
+\alias{make.asr.stoch.mkn}
 
 \title{Ancestral State Reconstruction Under Mk2/Mkn}
 
@@ -15,27 +15,43 @@
   stage, and mostly in terms of examples.}
 
 \usage{
-\method{asr.marginal}{mkn}(lik, pars, nodes=NULL, ...)
-\method{asr.joint}{mkn}(lik, pars, n=1, simplify=TRUE,
-       intermediates=FALSE, ...)
-\method{asr.stoch}{mkn}(lik, pars, n=1, ...)
+\method{make.asr.marginal}{mkn}(lik, ...)
+\method{make.asr.joint}{mkn}(lik, ...)
+\method{make.asr.stoch}{mkn}(lik, slim=FALSE, ...)
 }
 
 \arguments{
   \item{lik}{A likelihood function, returned by \code{make.mk2} or
     \code{make.mkn}.}
-  \item{pars}{A vector of parameters, suitable for \code{lik}.}
-  \item{nodes}{For \code{asr.marginal} only; an optional vector of
-    nodes to return ancestral states for (using ape's index).  By
-    default, all nodes are returned.}
-  \item{n}{The number of samples to draw from the joint distribution, or
-    number of stochastic reconstructions to make.}
-  \item{simplify}{For \code{asr.joint}, return a vector of states when
-    \code{n=1}? Otherwise leaves as a one row matrix.}
-  \item{intermediates}{Logical: Return intermediates as an attribute?
-    Used internally, and probably not of general interest.}
-  \item{...}{Additional arguments passed through to future methods.
-    Currently unused.}
+
+  \item{slim}{Should the history object be slimmed down?}
+
+  \item{...}{Additional arguments; currently ignored.}
+  % TODO: This needs documenting.
+  
+%   \item{pars}{A vector of parameters, suitable for \code{lik}.}
+
+%   \item{nodes}{For \code{asr.marginal} only; an optional vector of
+%     nodes to return ancestral states for (using ape's index).  By
+%     default, all nodes are returned.}
+
+%   \item{root}{Behaviour at the root.  See \code{\link{make.bisse}} for
+%     details and possible values.}
+  
+%   \item{root.p}{Root weightings for use when \code{root=ROOT.GIVEN}.
+%     See \code{\link{make.bisse}} for details.}
+  
+%   \item{n}{The number of samples to draw from the joint distribution, or
+%     number of stochastic reconstructions to make.}
+  
+%   \item{simplify}{For \code{asr.joint}, return a vector of states when
+%     \code{n=1}? Otherwise leaves as a one row matrix.}
+  
+%   \item{intermediates}{Logical: Return intermediates as an attribute?
+%     Used internally, and probably not of general interest.}
+  
+%   \item{...}{Additional arguments passed through to future methods.
+%     Currently unused.}
 }
 
 \details{
@@ -44,6 +60,11 @@
   \code{mkn} uses 1/2.
 
   This is all quite slow.  Faster versions are coming eventually.
+
+  These functions all return functions that generate different types of
+  ancestral reconstruction.
+  %The function returned by \code{make.asr.marginal} generates marginal
+  %ancestral reconstructions, and has definition
 }
 
 \examples{
@@ -67,7 +88,7 @@ lik <- make.mk2(phy, phy$tip.state)
 ## reconstructions:
 st.m <- asr.marginal(lik, pars[5:6])
 
-## There is still not a good stand-along plotting command for nodes.
+## There is still not a good stand-alone plotting command for nodes.
 ## For now, use ape's nodelabels().
 plot(h, phy, main="Marginal ASR", show.node.state=FALSE)
 nodelabels(thermo=t(st.m), piecol=1:2, cex=.5)

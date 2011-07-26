@@ -1,4 +1,4 @@
-## TODO:
+## TODO
 ## 1. check that time is entirely completed.  This is important (done)
 ## 2. Remove saveOut() if possible for a 7% speedup, mostly by losing
 ##    the method dispatch on the transpose operation.
@@ -6,7 +6,10 @@
 ##    do with the f.hi/f.lo combination, but there might be some hints
 ##    in the bisse.td code on how to do this nicely.
 ## 4. Tunable accuracy, probably via control.
+## 5. Have a look at the PDE/deSolve manual for possibly a faster way
+##    of doing this.
 
+## This function probably should not be taken too seriously.
 make.branches.quasse.mol <- function(control) {
   nx <- control$nx
   dx <- control$dx
@@ -30,7 +33,7 @@ make.pde.quasse.mol <- function(nx, dx, nd, atol, rtol) {
     ans <- ode.1D(y, c(t0, t0+len), "derivs_quasse_mol", pars,
                   initfunc="initmod_quasse_mol",
                   nspec=nd, dimens=nx,
-                  method=method, dllname="diversitree", atol=atol,
+                  method=method, dllname="diversitreeGP", atol=atol,
                   rtol=rtol)
     if ( abs(ans[length(len)+1,1] - (t0 + len)) > 1e-8 )
       stop("Integration error: integration stopped prematurely")

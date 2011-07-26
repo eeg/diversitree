@@ -14,16 +14,51 @@
 make.musse.split <- function(tree, states, k, nodes, split.t,
                              sampling.f=NULL, strict=TRUE,
                              control=list()) {
-  control <- modifyList(list(safe=FALSE, tol=1e-8, eps=0), control)
+  control <- check.control.ode(control)
+  if ( control$backend == "CVODES" )
+    stop("Cannot use CVODES backend with musse.split")
+
   cache <- make.cache.musse.split(tree, states, k, nodes, split.t,
                                   sampling.f, strict)
-  branches <- make.branches.musse(k, control$safe, control$tol,
-                                  control$eps)
-  branches.aux <- make.branches.aux.musse(k, cache$sampling.f,
-                                          control$safe, control$tol,
-                                          control$eps)
-  ll <- function(pars, ...)
-    ll.musse.split(cache, pars, branches, branches.aux, ...)
+
+  branches <- make.branches.musse(cache, control)
+  branches.aux <- make.branches.aux.musse(cache, control)
+
+  k <- cache$k
+  n.part <- cache$n.part
+  np <- k * (k + 1)
+
+  f.pars <- make.musse.pars(k)  
+  
+  ll <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
+                 root.p=NULL, intermediates=FALSE) {
+    pars <- check.par.multipart(pars, n.part, np)
+    pars.n <- unlist(pars)
+    if ( any(pars.n < 0) || any(!is.finite(pars.n)) )
+      return(-Inf)
+
+    ## Set up all the Q matrices:
+    for ( i in seq_len(n.part) )
+      pars[[i]] <- f.pars(pars[[i]])
+
+    ans <- all.branches.split(pars, cache, initial.conditions.musse,
+                              branches, branches.aux, FALSE)
+
+    vals <- ans[[1]]$base
+    lq <- unlist(lapply(ans, "[[", "lq"))
+
+    pars.root <- pars[[1]]
+    root.p <- root.p.xxsse(vals, pars.root, root, root.p)
+    loglik <- root.xxsse(vals, pars.root, lq, condition.surv, root.p)
+
+    if ( intermediates ) {
+      ans$root.p <- root.p
+      attr(loglik, "intermediates") <- ans
+      attr(loglik, "vals") <- vals
+    }
+    loglik
+  }
+ 
   class(ll) <- c("musse.split", "musse", "function")
   attr(ll, "n.part") <- cache$n.part
   attr(ll, "k")      <- k
@@ -74,9 +109,10 @@ make.cache.musse.split <- function(tree, states, k, nodes, split.t,
 
   for ( i in seq_along(cache$cache) ) {
     x <- cache$cache[[i]]
+    x$ny <- 2*k
+    x$k <- k
     x$tip.state  <- states[x$tip.label]
     x$sampling.f <- sampling.f[[i]]
-    x$k <- k
     x$y <- initial.tip.musse(x)
     cache$cache[[i]] <- x
   }
@@ -88,50 +124,20 @@ make.cache.musse.split <- function(tree, states, k, nodes, split.t,
   cache
 }
 
-ll.musse.split <- function(cache, pars, branches, branches.aux,
-                           condition.surv=TRUE, root=ROOT.OBS,
-                           root.p=NULL, intermediates=FALSE) {
-  n.part <- cache$n.part
-  k <- cache$k
-
-  pars <- check.par.multipart(pars, n.part, k * (k + 1))
-
-  pars.n <- unlist(pars)
-  if ( any(pars.n < 0) || any(!is.finite(pars.n)) )
-    return(-Inf)
-
-  ans <- all.branches.split(pars, cache, initial.conditions.musse,
-                            branches, branches.aux)
-
-  vals <- ans[[1]]$base
-  lq <- unlist(lapply(ans, "[[", "lq"))
-
-  pars.root <- pars[[1]]
-  root.p <- root.p.xxsse(vals, pars.root, root, root.p)
-  loglik <- root.xxsse(vals, pars.root, lq, condition.surv, root.p)
-
-  ans$root.p <- root.p
-  cleanup(loglik, pars, intermediates, cache, ans)
-}
-
 ## 7: initial.conditions: from musse
 
 ## 8: branches: from musse.  However the 'branches.aux' function is
 ## required to compute the E0, E1 values after a partition.
-
-## TODO: this would be nicer if it did not compute the Ds at all.
-## Also, it can just use the non-clever function as I do not need the
-## log compensation worked out.
-make.branches.aux.musse <- function(k, sampling.f, safe=FALSE,
-                                    tol=1e-8, eps=0) {
-  y <- lapply(sampling.f, function(x) c(1-x, rep(1, k)))
-  branches <- make.branches.musse(k, safe, tol, eps)
+make.branches.aux.musse <- function(cache, control) {
+  k <- cache$k
+  idx.e <- seq_len(k)
+  y <- lapply(cache$sampling.f, function(x) c(1-x, rep(1, k)))
   n <- length(y)
-  j <- 2:(k+1)
-  branches.aux.musse <- function(i, len, pars) {
+  branches <- make.branches.musse(cache, control)
+
+  function(i, len, pars) {
     if ( i > n )
       stop("No such partition")
-    branches(y[[i]], len, pars, 0)[,j,drop=FALSE]
+    branches(y[[i]], len, pars, 0)[[2]][idx.e,,drop=FALSE]
   }
 }
-

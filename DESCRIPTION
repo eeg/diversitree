@@ -1,11 +1,11 @@
 Package: diversitreeGP
 Title: diversitree: comparative phylogenetic tests of diversification
-Version: 0.6-5
-Date: 2010-04-20
+Version: 0.7-6
+Date: 2010-07-11
 Author: Richard G. FitzJohn <fitzjohn@zoology.ubc.ca>, with GeoSSE by
   Emma E. Goldberg <eeg@uic.edu>.
 Maintainer: Richard G. FitzJohn <fitzjohn@zoology.ubc.ca>
-Depends: R (>= 2.4), deSolve (>= 1.5), ape, subplex
+Depends: R (>= 2.4), deSolve (>= 1.7), ape, subplex
 Suggests: numDeriv, tgp, multicore, minqa
 SystemRequirements: fftw3 (>= 3.1.2)
 Description: Contains a number of comparative phylogenetic methods,
@@ -23,4 +23,4 @@ Description: Contains a number of comparative phylogenetic methods,
   *** EEG: gradual and punctuational change ***
 License: GPL (>=2)
 URL: http://www.zoology.ubc.ca/prog/diversitree
-Packaged: 2011-04-20 22:42:30 UTC; rich
+Packaged: 2011-07-11 23:28:09 UTC; rich

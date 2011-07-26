@@ -31,13 +31,7 @@ make.mkn <- function(tree, states, k, use.mk2=FALSE, strict=TRUE,
   cache$f.pij <- if ( k == 2 && use.mk2 )
     pij.mk2 else make.pij.mkn(k, control$safe, control$tol)
 
-  qmat <- matrix(0, k, k)
-  idx <- cbind(rep(1:k, each=k-1),
-               unlist(lapply(1:k, function(i) (1:k)[-i])))
-
-  len.uniq <- cache$len.uniq
-  len.idx <- cache$len.idx
-  n.tip <- cache$n.tip
+  f.pars <- make.mkn.pars(k)
 
   ll.mkn <- function(cache, pars, prior=NULL, root=ROOT.OBS,
                      root.p=NULL, intermediates=FALSE) {
@@ -47,18 +41,20 @@ make.mkn <- function(tree, states, k, use.mk2=FALSE, strict=TRUE,
       stop(sprintf("Invalid length parameters (expected %d)", k*(k-1)))
     if ( any(!is.finite(pars)) || any(pars < 0) )
       return(-Inf)
-    qmat[idx] <- pars
-    diag(qmat) <- -rowSums(qmat)
-    ans <- all.branches.mkn(qmat, cache)
-    d.root <- ans$init[[cache$root]]
+    
+    ans <- all.branches.mkn(f.pars(pars), cache)
+
+    d.root <- ans$init[,cache$root]
     root.p <- root.p.mkn(d.root, pars, root, root.p)
     loglik <- root.mkn(d.root, ans$lq, root.p)
-    if ( intermediates ) {
-      ans$init[seq_len(n.tip)] <- matrix.to.list(cache$y$y[cache$y$i,])
-      ans$root.p <- root.p
-    }
 
-    cleanup(loglik, pars, intermediates, cache, ans)
+    if ( intermediates ) {
+      ans$init[,cache$tips] <- cache$y$y[cache$y$i,]
+      ans$root.p <- root.p
+      attr(loglik, "intermediates") <- ans
+      attr(loglik, "vals") <- d.root
+    }
+    loglik
   }
 
   ll <- function(pars, ...) ll.mkn(cache, pars, ...)
@@ -138,7 +134,7 @@ make.cache.mkn <- function(tree, states, k, use.mk2, strict) {
                          rep(seq_len(cache$n.tip), k))
   cache$len.uniq <- sort(unique(cache$len))
   cache$len.idx <- match(cache$len, cache$len.uniq)
-  cache$y <- initial.tip.mkn(cache) 
+  cache$y <- initial.tip.mkn(cache)
 
   ## Alter things to make it more speedy.  The '0' denotes base zero
   ## indices.
@@ -198,8 +194,8 @@ root.mkn <- function(vals, lq, root.p) {
 ## 6: ll (done within make.mkn)
 
 ## 7: initial.conditions:
-initial.conditions.mkn <- function(init, pars, t, is.root=FALSE)
-  init[[1]] * init[[2]]
+## initial.conditions.mkn <- function(init, pars, t, is.root=FALSE)
+##   init[[1]] * init[[2]]
 
 ## 8: branches (separate for mk2 and mkn)
 pij.mk2 <- function(len, pars) {
@@ -234,20 +230,34 @@ stationary.freq.mkn <- function(pars) {
   else
     .NotYetImplemented()
 }
+
+make.mkn.pars <- function(k) {
+  qmat <- matrix(0, k, k)
+  idx <- cbind(rep(1:k, each=k-1),
+               unlist(lapply(1:k, function(i) (1:k)[-i])))
+
+  function(pars) {
+    qmat[idx] <- pars
+    diag(qmat) <- -rowSums(qmat)
+    qmat
+  }
+}
+
+## This is not the most efficient possible, but should not really be
+## used in code for which this is a problem.
 mkn.Q <- function(pars, k) {
   if ( missing(k) )
     k <- (1 + sqrt(1 + 4*(length(pars))))/2
   if ( abs(k - round(k)) > 1e-6 || length(pars) != k*(k-1) )
     stop("Invalid parameter length")
-  qmat <- matrix(0, k, k)
-  idx <- cbind(rep(1:k, each=k-1),
-               unlist(lapply(1:k, function(i) (1:k)[-i])))
-  qmat[idx] <- pars
-  diag(qmat) <- -rowSums(qmat)
-  qmat
+  make.mkn.pars(k)(pars)
 }
 
+
 ## The new integrator.
+## Returns slightly different output than all.branches at this point
+## (the init and base values are transposed relative to all.branches,
+## but this will change there eventually).
 all.branches.mkn <- function(pars, cache) {
   ## At this point, the parameters are assumed to be a Q matrix
   k <- cache$k
@@ -269,7 +279,7 @@ all.branches.mkn <- function(pars, cache) {
   ## tips
   ans <- matrix(pij[idx.tip], n.tip, k)
   q <- rowSums(ans)
-  branch.base[,seq_len(n.tip)] <- t(ans/q)
+  branch.base[,seq_len(n.tip)] <- t.default(ans/q)
   lq[seq_len(n.tip)] <- log(q)
 
   ## branches
@@ -284,8 +294,8 @@ all.branches.mkn <- function(pars, cache) {
             lq       = lq,
             NAOK=TRUE, DUP=FALSE)
 
-  list(init=matrix.to.list(t(ans$init)),
-       base=matrix.to.list(t(ans$base)),
-       lq=ans$lq, pij=pij)
+  list(init=ans$init,
+       base=ans$base,
+       lq=ans$lq,
+       pij=pij)
 }
-

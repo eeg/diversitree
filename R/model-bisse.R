@@ -12,14 +12,43 @@
 ## 1: make
 make.bisse <- function(tree, states, unresolved=NULL, sampling.f=NULL,
                        nt.extra=10, strict=TRUE, control=list()) {
-  control <- modifyList(list(safe=FALSE, tol=1e-8, eps=0), control)
+  control <- check.control.ode(control)
+  backend <- control$backend
+  
   cache <- make.cache.bisse(tree, states, unresolved=unresolved,
                             sampling.f=sampling.f, nt.extra=nt.extra,
                             strict=strict)
-  branches <- make.branches.bisse(control$safe, control$tol, control$eps)
-  ll <- function(pars, ...) ll.bisse(cache, pars, branches, ...)
-  class(ll) <- c("bisse", "function")
-  ll
+  if ( backend == "CVODES" )
+    all.branches <- make.all.branches.C.bisse(cache, control)
+  else
+    branches <- make.branches.bisse(cache, control)
+
+  ## Should fix this at some point, but it will be for the use of
+  ## "split" methods; the unresolved clade bit will be so slow
+  ## compared with this speedup.
+  if ( backend == "CVODES" && !is.null(cache$unresolved) )
+    stop("Cannot yet use CVODES backend with unresolved clades")
+
+  ll.bisse <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
+                       root.p=NULL, intermediates=FALSE) {
+    check.pars.bisse(pars)
+    if ( !is.null(root.p) &&  root != ROOT.GIVEN )
+      warning("Ignoring specified root state")
+
+    if ( !is.null(cache$unresolved) )
+      cache$preset <- 
+        branches.unresolved.bisse(pars, cache$unresolved)
+
+    if ( backend == "CVODES" )
+      ll.xxsse.C(pars, all.branches,
+                 condition.surv, root, root.p, intermediates)
+    else
+      ll.xxsse(pars, cache, initial.conditions.bisse, branches,
+               condition.surv, root, root.p, intermediates)
+  }
+
+  class(ll.bisse) <- c("bisse", "function")
+  ll.bisse
 }
 
 ## 2: print
@@ -61,9 +90,8 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
   ## TODO: There is a potential issue here with states, as
   ## 'unresolved' may contain one of the states.  For now I am
   ## disabling the check, but this is not great.
-  if ( strict && !is.null(unresolved) ) {
+  if ( strict && !is.null(unresolved) )
     strict <- FALSE
-  }
   
   tree <- check.tree(tree)
   states <- check.states(tree, states, strict=strict, strict.vals=0:1)
@@ -81,10 +109,9 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
   else
     sampling.f <- check.sampling.f(sampling.f, 2)
 
-  ## Check 'unresolved' (there is certainly room to streamline this in
-  ## the future).
-
   cache <- make.cache(tree)
+  cache$ny <- 4L
+  cache$k <- 2L
   cache$tip.state  <- states
   cache$unresolved <- unresolved
   cache$sampling.f <- sampling.f
@@ -117,7 +144,6 @@ make.cache.bisse <- function(tree, states, unresolved=NULL,
 ##   state0: c(f_0, 0,   1-f_0, 1-f_1)
 ##   state1: c(0,   f_1, 1-f_0, 1-f_1)
 ##   state?: c(f_0, f_1, 1-f_0, 1-f_1)
-
 initial.tip.bisse <- function(cache) {
   f <- cache$sampling.f
   y <- list(c(1-f, f[1], 0),
@@ -136,49 +162,27 @@ initial.tip.bisse <- function(cache) {
 
 
 ## 6: ll
-ll.bisse <- function(cache, pars, branches, prior=NULL,
-                     condition.surv=TRUE, root=ROOT.OBS, root.p=NULL,
-                     intermediates=FALSE,
-                     root.p0=NA, root.p1=NA) {
-  if ( !is.null(prior) )
-    stop("'prior' argument to likelihood function no longer accepted")
-  if ( length(pars) != 6 )
-    stop("Invalid parameter length (expected 6)")
-  if ( any(pars < 0) || any(!is.finite(pars)) )
-    return(-Inf)
-
-  if ( !is.na(root.p0) ) {
-    warning("root.p0 is deprecated: please use root.p instead")
-    root.p <- c(root.p0, 1-root.p0)
-  } else if ( !is.na(root.p1) ) {
-    warning("root.p1 is deprecated: please use root.p instead")
-    root.p <- c(1-root.p1, root.p1)
-  }
-  if ( !is.null(root.p) &&  root != ROOT.GIVEN )
-    warning("Ignoring specified root state")
-
-  if ( !is.null(cache$unresolved) )
-    cache$preset <- 
-      branches.unresolved.bisse(pars, cache$unresolved)
-
-  ll.xxsse(pars, cache, initial.conditions.bisse, branches,
-           condition.surv, root, root.p, intermediates)
-}
 
 ## 7: initial.conditions:
 initial.conditions.bisse <- function(init, pars, t, is.root=FALSE)
-  c(init[[1]][c(1,2)],
-    init[[1]][c(3,4)] * init[[2]][c(3,4)] * pars[c(1,2)])
+  c(init[c(1,2),1],
+    init[c(3,4),1] * init[c(3,4),2] * pars[c(1,2)])
 
 ## 8: branches
-make.branches.bisse <- function(safe=FALSE, tol=1e-8, eps=0) {
-  RTOL <- ATOL <- tol
-  bisse.ode <- make.ode("derivs_bisse", "diversitreeGP",
-                        "initmod_bisse", 4, safe)
-  branches <- function(y, len, pars, t0)
-    t.default(bisse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
-  
-  make.branches(branches, 3:4, eps)
+make.branches.bisse <- function(cache, control) {
+  neq <- 4L
+  np <- 6L
+  comp.idx <- as.integer(3:4)
+  make.ode.branches("bisse", "diversitreeGP", neq, np, comp.idx,
+                    control)
+}
+
+make.all.branches.C.bisse <- function(cache, control) {
+  neq <- 4L
+  np <- 6L
+  comp.idx <- as.integer(3:4)
+  make.all.branches.C(cache, "bisse", "diversitreeGP",
+                      neq, np, comp.idx, control)
 }
 
 ## 9: branches.unresolved
@@ -201,9 +205,10 @@ branches.unresolved.bisse <- function(pars, unresolved) {
   q <- rowSums(base[,3:4,drop=FALSE])
   base[,3:4] <- base[,3:4] / q
 
+  ## Note the transpose here.
   list(target=unresolved$target,
        lq=log(q),
-       base=matrix.to.list(base))
+       base=t(base))
 }
 
 ## Additional functions
@@ -237,9 +242,6 @@ stationary.freq.bisse <- function(pars) {
 }
 
 starting.point.bisse <- function(tree, q.div=5, yule=FALSE) {
-  ## TODO: Use qs estimated from Mk2?  Can be slow is the only reason
-  ## I have not set this up by default.
-  ## find.mle(constrain(make.mk2(phy, phy$tip.state), q10 ~ q01), .1)$par
   pars.bd <- suppressWarnings(starting.point.bd(tree, yule))
   if  ( pars.bd[1] > pars.bd[2] )
     p <- rep(c(pars.bd, (pars.bd[1] - pars.bd[2]) / q.div), each=2)

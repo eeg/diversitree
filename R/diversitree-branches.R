@@ -69,8 +69,76 @@
 ##   Whether this is required or not depends on the initial conditions
 ##   produced by make.cache - see the documentation there and also for
 ##   the bisse initial.condition and branches functions.
-all.branches <- function(pars, cache, initial.conditions, branches) {
-  ## Inside all.branches:
+
+## The 'as.list' argument is to handle cases, such as QuaSSE, where
+## the output from branches() is of variable length and the result
+## should be stored in a list, rather than a matrix.  It is *not* to
+## switch between a choice of what is returned.
+
+## TODO: the 'zero' in the tip branches() calls assume that the tree
+## is ultrametric.  I can pass in
+##   cache$depth[idx]
+## but I need to be careful with this, as some depths will be
+## 1e-15 and things like that.  This may not be a problem in reality.
+all.branches.matrix <- function(pars, cache, initial.conditions,
+                                branches) {
+  len <- cache$len
+  depth <- cache$depth
+  children <- cache$children
+  order <- cache$order[-length(cache$order)]
+  root <- cache$root
+
+  n <- length(len)
+  lq <- rep(0, n)
+  n.tip <- cache$n.tip
+
+  y <- cache$y
+  branch.init <- branch.base <- matrix(NA, cache$ny, n)
+
+  if ( !is.null(cache$preset) ) {
+    lq[cache$preset$target] <- cache$preset$lq
+    branch.base[,cache$preset$target] <- cache$preset$base
+  }
+
+  if ( !is.null(names(y)) ) {
+    tip.t <- y$t
+    tip.target <- y$target
+    tip.y <- branch.init[,tip.target] <- y$t
+    for ( i in seq_along(idx) ) {
+      j <- tip.target[i]
+      ans <- branches(tip.y[,i], tip.t[i], pars, 0)
+      lq[j] <- ans[[1]]
+      branch.base[,j] <- ans[[2]]
+    }
+  } else {
+    for ( x in y ) {
+      idx <- x$target
+      unpack <- x$unpack
+      branch.init[,idx] <- x$y
+      ans <- branches(x$y, x$t.uniq, pars, 0)
+      lq[idx] <- ans[[1]][unpack]
+      branch.base[,idx] <- ans[[2]][,unpack]
+    }
+  }
+
+  for ( i in order ) {
+    y.in <- initial.conditions(branch.base[,children[i,]], pars, depth[i])
+    if ( !all(is.finite(y.in)) )
+      stop("Bad initial conditions: calculation failure along branches?")
+    branch.init[,i] <- y.in
+    ans <- branches(y.in, len[i], pars, depth[i])
+    lq[i] <- ans[[1]]
+    branch.base[,i] <- ans[[2]]
+  }
+
+  y.in <- initial.conditions(branch.base[,children[root,]], pars,
+                             depth[root], TRUE)
+  branch.init[,root] <- y.in
+  list(init=branch.init, base=branch.base, lq=lq)
+}
+
+all.branches.list <- function(pars, cache, initial.conditions,
+                              branches) {
   len <- cache$len
   depth <- cache$depth
   children <- cache$children
@@ -84,43 +152,25 @@ all.branches <- function(pars, cache, initial.conditions, branches) {
   y <- cache$y
   branch.init <- branch.base <- vector("list", n)
 
-  ## TODO: This should also move in the tip conditions perhaps?
   if ( !is.null(cache$preset) ) {
     lq[cache$preset$target] <- cache$preset$lq
     branch.base[cache$preset$target] <- cache$preset$base
   }
 
-  ## TODO: better way of sorting between these.
-  ## how about a tip.method=TIP.SORTED or TIP.GROUPED?
   if ( is.null(names(y)) ) {
     for ( x in y ) {
       idx <- x$target
       branch.init[idx] <- list(x$y)
-      ## TODO: the 'zero' here assumes that the tree is ultrametric.
-      ## I can pass in
-      ##   cache$depth[idx]
-      ## but I need to be careful with this, as some depths will be
-      ## 1e-15 and things like that.
       ans <- branches(x$y, x$t.uniq, pars, 0)
-
-      if ( is.matrix(ans) ) {
-        ans <- ans[x$unpack,,drop=FALSE]
-        lq[idx] <- ans[,1]
-        branch.base[idx] <- matrix.to.list(ans[,-1,drop=FALSE])
-      } else {
-        ans <- ans[x$unpack]
-        lq[idx] <- unlist(lapply(ans, "[[", 1))
-        branch.base[idx] <- lapply(ans, "[", -1)
-      }
+      ans <- ans[x$unpack]
+      lq[idx] <- unlist(lapply(ans, "[[", 1))
+      branch.base[idx] <- lapply(ans, "[", -1)
     }
   } else {
     tip.t <- y$t
     tip.target <- y$target
     tip.y <- branch.init[tip.target] <- y$y
     for ( i in seq_along(tip.y) ) {
-      ## TODO: This (the zero) assumes that all branches terminate at
-      ## the present (not true for Mk2 style models, or extinct
-      ## species)
       j <- tip.target[i]
       ans <- branches(tip.y[[i]], tip.t[i], pars, 0)
       lq[j] <- ans[1]
@@ -141,7 +191,6 @@ all.branches <- function(pars, cache, initial.conditions, branches) {
     branch.base[[i]] <- ans[-1]
   }
 
-  ## This also changes to reflect the change in argument order.
   y.in <- initial.conditions(branch.base[children[root,]], pars,
                              depth[root], TRUE)
   # NOTE: insert node.fixing here (adjust y.in as above)
@@ -188,17 +237,22 @@ make.cache <- function(tree) {
   ## TODO: I don't need this ancestor thing for much - drop it here
   ## and move it to the asr code that actually uses it (this takes a
   ## lot of time, and is only used by the ASR code).
+  ## The only place that this is used at all is do.asr.marginal(); it
+  ## would be possible to make this as needed when making an
+  ## asr.marginal() function.
   anc <- vector("list", max(order))
   for ( i in c(rev(order[-length(order)]), tips) )
     anc[[i]] <- c(parent[i], anc[[parent[i]]])
   
   ans <- list(tip.label=tree$tip.label,
+              node.label=tree$node.label,
               len=len,
               children=children,
               parent=parent,
               order=order,
               root=root,
               n.tip=n.tip,
+              n.node=tree$Nnode,
               tips=tips,
               height=height,
               depth=depth,
@@ -235,23 +289,26 @@ root.p.xxsse <- function(vals, pars, root, root.p=NULL) {
   k <- length(vals) / 2
   d.root <- vals[(k+1):(2*k)]
 
-  if ( root == ROOT.FLAT )
+  if ( root == ROOT.FLAT ) {
     p <- 1/k
-  else if ( root == ROOT.EQUI )
-    if ( k == 2 )
+  } else if ( root == ROOT.EQUI ) {
+    if ( k == 2 ) {
       p <- stationary.freq.bisse(pars)
-    else
-      stop("ROOT.EQUI only possible when k = 2")
-  else if ( root == ROOT.OBS )
+      p <- c(p, 1-p)
+    } else {
+      stop("ROOT.EQUI only implemented for BiSSE")
+    }
+  } else if ( root == ROOT.OBS ) {
     p <- d.root / sum(d.root)
-  else if ( root == ROOT.GIVEN ) {
+  } else if ( root == ROOT.GIVEN ) {
     if ( length(root.p) != length(d.root) )
       stop("Invalid length for root.p")
     p <- root.p
-  } else if ( root == ROOT.ALL )
+  } else if ( root == ROOT.ALL ) {
     p <- NULL
-  else
+  } else {
     stop("Invalid root mode")
+  }
   p
 }
 
@@ -275,25 +332,22 @@ root.xxsse <- function(vals, pars, lq, condition.surv, root.p) {
   loglik
 }
 
-cleanup <- function(loglik, pars, intermediates=FALSE, cache, vals) {
-  if ( intermediates ) {
-    attr(loglik, "cache") <- cache
-    attr(loglik, "intermediates") <- vals
-    attr(loglik, "vals") <- vals$init[[cache$root]]
-  }
-  loglik
-}
-
 ## Which leads to an all singing, all dancing function:
 ll.xxsse <- function(pars, cache, initial.conditions,
                      branches, condition.surv, root, root.p,
                      intermediates) {
-  ans <- all.branches(pars, cache, initial.conditions, branches)
-  vals <- ans$init[[cache$root]]
+  ans <- all.branches.matrix(pars, cache, initial.conditions, branches)
+  vals <- ans$init[,cache$root]
   root.p <- root.p.xxsse(vals, pars, root, root.p)
   loglik <- root.xxsse(vals, pars, ans$lq, condition.surv, root.p)
-  ans$root.p <- root.p
-  cleanup(loglik, pars, intermediates, cache, ans)
+
+  if ( intermediates ) {
+    ans$root.p <- root.p
+    attr(loglik, "intermediates") <- ans
+    attr(loglik, "vals") <- vals
+  }
+
+  loglik  
 }
 
 ## Convert a branches function into one that adds log-compensation.
@@ -302,31 +356,62 @@ make.branches <- function(branches, idx, eps=0) {
   if ( length(idx) > 0 )
     function(y, len, pars, t0) {
       ret <- branches(y, len, pars, t0)
-      if ( all(ret[,idx] >= eps) ) {
-        q <- rowSums(ret[,idx,drop=FALSE])
+      if ( all(ret[idx,] >= eps) ) {
+        q <- colSums(ret[idx,,drop=FALSE])
         i <- q > 0
-        ret[i,idx] <- ret[i,idx] / q[i]
+        ret[idx,i] <- ret[idx,i] / rep(q[i], each=length(idx))
         lq <- q
         lq[i] <- log(q[i])
-        cbind(lq, ret, deparse.level=0)
+        list(lq, ret)
       } else {
         ti <- len[length(len)]/2
         len1 <- c(len[len <= ti], ti)
         len2 <- len[len > ti] - ti
         n1 <- length(len1)
+        
         ret1 <- Recall(y, len1, pars, t0)
-        ret2 <- Recall(ret1[n1,-1], len2, pars, t0 + ti)
-        ret2[,1] <- ret2[,1] + ret1[n1,1]
-        rbind(ret1[-n1,], ret2)
+        ret2 <- Recall(ret1[[2]][,n1], len2, pars, t0 + ti)
+        ret2[[1]] <- ret2[[1]] + ret1[[1]][n1]
+
+        list(c(ret1[[1]][-n1], ret2[[1]]),
+             cbind(ret1[[2]][,-n1], ret2[[2]]))
       }
     }
   else
     function(y, len, pars, t0)
-      cbind(0, branches(y, len, pars, t0), deparse.level=0)
+      list(rep.int(0, length(len)),
+           branches(y, len, pars, t0))
+}
+
+make.ode.branches <- function(model, dll, neq, np, comp.idx, control) {
+  backend <- control$backend
+  safe <- control$safe
+  tol <- control$tol
+  eps <- control$eps
+  
+  if ( backend == "deSolve" ) {
+    initfunc <- sprintf("initmod_%s", model)
+    derivs <- sprintf("derivs_%s", model)
+
+    RTOL <- ATOL <- tol
+    ode <- make.ode(derivs, dll, initfunc, neq, safe)
+    branches <- function(y, len, pars, t0)
+      ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1,drop=FALSE]
+  } else if ( backend == "cvodes" ) {
+    derivs <- sprintf("derivs_%s_cvode", model)
+
+    RTOL <- ATOL <- tol
+    ode <- cvodes(neq, np, derivs, RTOL, ATOL, dll)
+    branches <- function(y, len, pars, t0)
+      ode(pars, y, c(t0, t0+len))[,-1,drop=FALSE]
+  } else {
+    stop("Invalid backend", backend)
+  }
+
+  make.branches(branches, comp.idx, eps)
 }
 
 ## Utility functions for organising initial conditions.
-## TODO: Document.
 dt.tips.grouped <- function(y, y.i, tips, t) {
   if ( !is.list(y) )
     stop("'y' must be a list of initial conditions")
@@ -353,15 +438,26 @@ dt.tips.grouped <- function(y, y.i, tips, t) {
 }
 
 dt.tips.ordered <- function(y, tips, t) {
-  if ( !is.list(y) )
-    stop("'y' must be a list of initial conditions")
-  if ( length(y) != length(tips) )
-    stop("y must be same length as tips")
-  if ( length(y) != length(t) )
-    stop("y must be the same length as t")
-
   i <- order(t)
-  list(target=tips[i],
-       t=t[i],
-       y=y[i])
+
+  if ( is.list(y) ) {
+    if ( length(y) != length(tips) )
+      stop("y must be same length as tips")
+    if ( length(y) != length(t) )
+      stop("y must be the same length as t")
+    list(target=tips[i],
+         t=t[i],
+         y=y[i])
+  } else if ( is.matrix(y) ) {
+    if ( ncol(y) != length(tips) )
+      stop("y must be same length as tips")
+    if ( ncol(y) != length(t) )
+      stop("y must be the same length as t")
+    list(target=tips[i],
+         t=t[i],
+         y=y[,i])
+  } else {
+    stop("y must be a list or matrix")
+  }
 }
+

@@ -55,7 +55,6 @@ count.eval <- function(f) {
 }
 
 ## Known to work on 1.3-1.6
-## TODO: fall back on "safe" with a warning if the an unknown version.
 make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
   if (!is.character(func)) 
     stop("`func' must be a character vector")
@@ -63,12 +62,15 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
     stop("You need to specify the name of the dll or shared library where func can be found (without extension)")
 
   if ( safe ) {
-    function(y, times, parms, rtol, atol)
-      t(lsoda(y, times, parms, rtol=rtol, atol=atol,
-              initfunc=initfunc, func=func, dllname=dllname))
+    function(y, times, parms, rtol, atol) {
+      ret <- t(lsoda(y, times, parms, rtol=rtol, atol=atol,
+                     initfunc=initfunc, func=func, dllname=dllname))
+      dimnames(ret) <- NULL
+      ret
+    }
   } else {
-    initfunc <- getNativeSymbolInfo(initfunc, PACKAGE=dllname)$address
-    derivfunc <- getNativeSymbolInfo(func, PACKAGE=dllname)$address
+    initfunc.addr <- getNativeSymbolInfo(initfunc, PACKAGE=dllname)$address
+    derivfunc.addr <- getNativeSymbolInfo(func, PACKAGE=dllname)$address
     jacfunc <- NULL
 
     maxordn <- 12
@@ -82,7 +84,7 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
     iwork[2] <- as.integer(1)    # bandup
     iwork[6] <- as.integer(5000) # maxsteps
 
-    rwork <- vector("double", 20) # TODO: 5, 6 do nothing.
+    rwork <- vector("double", 20)
     rwork[5] <- 0                     # hini
     rwork[6] <- 10                    # hmax (consider 0)
     rwork[7] <- 0                     # hmin
@@ -99,10 +101,7 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
     eventfunc <- NULL
     elag <- list(islag=0L)
 
-    vers <- packageDescription("deSolve")$Version
-    vers <- strsplit(vers, "-")[[c(1,1)]]
-
-    f.1.5 <- function(y, times, parms, rtol, atol) {
+    sol <- function(y, times, parms, rtol, atol) {
       if (!is.numeric(y)) 
         stop("`y' must be numeric")
       if (!is.numeric(times)) 
@@ -110,82 +109,12 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
       storage.mode(y) <- storage.mode(times) <- "double"
 
       ret <- 
-        .Call("call_lsoda", y, times, derivfunc, parms, rtol, atol,
+        .Call("call_lsoda", y, times, derivfunc.addr, parms,
+              rtol, atol,
               NULL,      # rho: environment
               NULL,      # tcrit: critical times
               jacfunc, 
-              initfunc,
-              INTZERO,   # verbose (false)
-              INTONE,    # itask
-              rwork,
-              iwork,
-              INTTWO,    # jT: Jacobian type (fullint)
-              INTZERO,   # nOut (no global variables)
-              lrw,       # size of workspace (real)
-              liw,       # size of workspace (int)
-              INTONE,    # Solver
-              NULL,      # rootfunc
-              INTZERO,   # nRoot
-              0,         # rpar: no extra real parameters
-              INTZERO,   # ipar: no extra integer parameters
-              INTZERO,   # Type
-              flist,     # [New in 1.5]
-              PACKAGE="deSolve")
-      if ( max(abs(ret[1,] - times)) > 1e-6 )
-        stop("Integration error: integration stopped prematurely")
-      ret
-    }
-    f.1.6 <- function(y, times, parms, rtol, atol) {
-      if (!is.numeric(y)) 
-        stop("`y' must be numeric")
-      if (!is.numeric(times)) 
-        stop("`times' must be numeric")
-      storage.mode(y) <- storage.mode(times) <- "double"
-
-      ret <- 
-        .Call("call_lsoda", y, times, derivfunc, parms, rtol, atol,
-              NULL,      # rho: environment
-              NULL,      # tcrit: critical times
-              jacfunc, 
-              initfunc,
-              eventfunc, # [New in 1.6]
-              INTZERO,   # verbose (false)
-              INTONE,    # itask
-              rwork,
-              iwork,
-              INTTWO,    # jT: Jacobian type (fullint)
-              INTZERO,   # nOut (no global variables)
-              lrw,       # size of workspace (real)
-              liw,       # size of workspace (int)
-              INTONE,    # Solver
-              NULL,      # rootfunc
-              INTZERO,   # nRoot
-              0,         # rpar: no extra real parameters
-              INTZERO,   # ipar: no extra integer parameters
-              INTZERO,   # Type
-              flist,     # [New in 1.5]
-              elist,     # [New in 1.6]
-              PACKAGE="deSolve")
-      if ( max(abs(ret[1,] - times)) > 1e-6 )
-        stop("Integration error: integration stopped prematurely")
-      ret
-    }
-
-    ## f.1.7 also works with f.1.8: no changes were made to the lsoda
-    ## call.
-    f.1.7 <- function(y, times, parms, rtol, atol) {
-      if (!is.numeric(y)) 
-        stop("`y' must be numeric")
-      if (!is.numeric(times)) 
-        stop("`times' must be numeric")
-      storage.mode(y) <- storage.mode(times) <- "double"
-
-      ret <- 
-        .Call("call_lsoda", y, times, derivfunc, parms, rtol, atol,
-              NULL,      # rho: environment
-              NULL,      # tcrit: critical times
-              jacfunc, 
-              initfunc,
+              initfunc.addr,
               eventfunc, # [New in 1.6]
               INTZERO,   # verbose (false)
               INTONE,    # itask
@@ -210,10 +139,26 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
       ret
     }
 
-    switch(vers,
-           "1.5"=f.1.5, "1.5-1"=f.1.5, "1.6"=f.1.6, "1.7"=f.1.7,
-           "1.8"=f.1.7, "1.8.1"=f.1.7, "1.9"=f.1.7,
-           stop("Cannot use diversitree with deSolve version ", vers))
+
+    ## Temporary fix so that I can work on the cluster.  This will be
+    ## removed and DESCRIPTION updated to require R 2.12.0 or
+    ## greater.
+    if ( getRversion() >= "2.12.0" ) {
+      vers <-  packageVersion("deSolve")
+    } else {
+      vers <- package_version(packageDescription("deSolve",
+                                                 fields="Version"))
+    }
+    ## Update here when deSolve is updated.
+    max.deSolve <- package_version("1.10")
+    if ( vers > max.deSolve ) {
+      str <- paste("diversitree is not known to work with deSolve > ",
+                   max.deSolve, "\n\tfalling back on slow version")
+      warning(str)
+      make.ode(func, dllname, initfunc, ny, safe=TRUE)
+    } else {
+      sol
+    }
   }
 }
 
@@ -332,6 +277,11 @@ matrix.to.list <- function(m) {
   out
 }
 
+matrix.to.list <- function(m) {
+  storage.mode(m) <- "double"
+  .Call("matrix_to_list", m)
+}
+
 argnames.twopart <- function(x, base, n.level) {
   obj <- attr(x, "argnames")
   if ( is.null(obj) )
@@ -351,3 +301,4 @@ argnames.twopart.set <- function(x, value, n.base, n.level) {
   attr(x, "argnames") <- value
   x
 }
+

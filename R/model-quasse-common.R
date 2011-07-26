@@ -26,11 +26,11 @@ starting.point.quasse <- function(tree, states, states.sd=NULL)
 
 load.wisdom <- function(file="wisdom") {
   w <- paste(readLines(file), collapse="\n")
-  .Call("r_set_wisdom", w, PACKAGE="diversitree")
+  .Call("r_set_wisdom", w, PACKAGE="diversitreeGP")
 }
 
 save.wisdom <- function(file="wisdom") {
-  w <- .Call("r_get_wisdom", PACKAGE="diversitree")
+  w <- .Call("r_get_wisdom", PACKAGE="diversitreeGP")
   write(w, file)
 }
 
@@ -131,9 +131,6 @@ expand.pars.quasse <- function(lambda, mu, args, ext, pars) {
   pars.use
 }
 
-## TODO: Once a non-FFT backend is working, this will require some
-## tweaking.  Possibly it is enough to avoid the calculation of
-## padding altogether? 
 quasse.extent <- function(control, drift, diffusion) {
   nx <- control$nx
   dx <- control$dx
