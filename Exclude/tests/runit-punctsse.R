@@ -51,6 +51,8 @@ lnL2.punctsse2 <- constrain(lnL2.punctsse, lambda111~0, lambda122~0,
 lnL3.punctsse <- make.punctsse(ttn3$tree, ttn3$states+1, 2)
 lnL3.punctsse2 <- constrain(lnL3.punctsse, lambda122~0, lambda211~0)
 
+# todo, add as argument to make.*sse: control=list(backend="CVODES")
+
 #--------------------------------------------------
 # prepare parameter vectors
 #--------------------------------------------------

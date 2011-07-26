@@ -17,9 +17,17 @@
 
 ## 1: make
 make.punctsse <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
-                       safe=FALSE) {
+                       control=list()) {
+  control <- check.control.ode(control)
+  backend <- control$backend
+
+  unresolved <- NULL
+  nt.extra <- 10
   cache <- make.cache.musse(tree, states, k, sampling.f, strict)
-  branches <- make.branches.punctsse(k, safe)
+  
+  # some cvodes stuff will come here
+  branches <- make.branches.punctsse(cache, control)
+
   initial.conditions.punctsse <- make.initial.conditions.punctsse(k)
 
   ll.punctsse <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
@@ -33,14 +41,15 @@ make.punctsse <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
     if ( !is.null(root.p) &&  root != ROOT.GIVEN )
       warning("Ignoring specified root state")
 
+    # some cvodes stuff will come here
     ll.xxsse.punctsse(pars, cache, initial.conditions.punctsse, branches,
              condition.surv, root, root.p, intermediates)
   }
 
-  ll <- function(pars, ...) ll.punctsse(pars, ...)
-  class(ll) <- c("punctsse", "function")
-  attr(ll, "k") <- k
-  ll
+  # ll <- function(pars, ...) ll.punctsse(pars, ...)
+  class(ll.punctsse) <- c("punctsse", "function")
+  attr(ll.punctsse, "k") <- k
+  ll.punctsse
 }
 
 ## 2: print
@@ -111,11 +120,11 @@ make.initial.conditions.punctsse <- function(n)
 
   initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
     # E_i(t), same for N and M
-    e <- init[[1]][nseq]
+    e <- init[nseq,1]
 
     # D_i(t), formed from N and M
-    DM <- init[[1]][idxD]
-    DN <- init[[2]][idxD]
+    DM <- init[idxD,1]
+    DN <- init[idxD,2]
     DM.DN <- 0.5 * (DM[j] * DN[k] + DM[k] * DN[j])
     for (i in nseq) d[i] <- sum(pars[lam.idx[i,]] * DM.DN) # slower with apply
 
@@ -133,26 +142,55 @@ make.initial.conditions.punctsse <- function(n)
 }
 
 ## 8: branches
-make.branches.punctsse <- function(k, safe=FALSE) {
-  RTOL <- ATOL <- 1e-8
+make.branches.punctsse <- function(cache, control) {
+  k <- cache$k
+  neq <- as.integer(2*k)
+  np <- as.integer((k+3)*k*k/2)
+  comp.idx <- as.integer((k+1):(2*k))
 
+  # These indices are used for flattening the parameter structure.
   qmat <- matrix(0, k, k)
   idx.qmat <- cbind(rep(1:k, each=k-1),
                unlist(lapply(1:k, function(i) (1:k)[-i])))
   x <- k * k * (k + 1) / 2 + k
   idx.lm <- seq_len(x)
-  idx.q <- seq(x+1, (k+3)*k*k/2)
+  idx.q <- seq(x+1, np)
+  idx.pars <- list(qmat=qmat, idx.qmat=idx.qmat, idx.q=idx.q, idx.lm=idx.lm)
 
-  punctsse.ode <- make.ode("derivs_punctsse", "diversitreeGP",
-                        "initmod_punctsse", 2*k, FALSE)
+  # Consequently, can't use the generic make.ode.branches().
+  make.ode.branches.punctsse("punctsse", "diversitreeGP", neq, np, comp.idx,
+                             control, idx.pars)
+}
 
-  branches.punctsse <- function(y, len, pars, t0) {
+## This is instead of make.ode.branches() in diversitree-branches.R.
+## It's separate because parameter re-organization happens within branches().
+make.ode.branches.punctsse <- function(model, dll, neq, np, comp.idx, control,
+                                       idx.pars) {
+  backend <- control$backend
+  safe <- control$safe
+  tol <- control$tol
+  eps <- control$eps
+
+  qmat <- idx.pars$qmat
+  idx.qmat <- idx.pars$idx.qmat
+  idx.q <- idx.pars$idx.q
+  idx.lm <- idx.pars$idx.lm
+
+  # some cvodes stuff will go here
+  initfunc <- sprintf("initmod_%s", model)
+  derivs <- sprintf("derivs_%s", model)
+
+  RTOL <- ATOL <- tol
+  ode <- make.ode(derivs, dll, initfunc, neq, safe)
+  branches <- function(y, len, pars, t0) {
     qmat[idx.qmat] <- pars[idx.q]
     diag(qmat) <- -rowSums(qmat)
     pars <- c(pars[idx.lm], qmat)
-    t(punctsse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
+    ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1,drop=FALSE]
+    # old: t(punctsse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   }
-  make.branches(branches.punctsse, (k+1):(2*k))
+
+  make.branches(branches, comp.idx, eps)
 }
 
 # don't see a need for punctsse.Q()
@@ -239,10 +277,17 @@ root.punctsse <- function(vals, pars, lq, condition.surv, root.p) {
 ll.xxsse.punctsse <- function(pars, cache, initial.conditions,
                      branches, condition.surv, root, root.p,
                      intermediates) {
-  ans <- all.branches(pars, cache, initial.conditions, branches)
-  vals <- ans$init[[cache$root]]
+  ans <- all.branches.matrix(pars, cache, initial.conditions, branches)
+  # vals <- ans$init[[cache$root]]
+  vals <- ans$init[,cache$root]
   root.p <- root.p.punctsse(vals, pars, root, root.p)
   loglik <- root.punctsse(vals, pars, ans$lq, condition.surv, root.p)
-  ans$root.p <- root.p
-  cleanup(loglik, pars, intermediates, cache, ans)
+
+  if ( intermediates ) {
+    ans$root.p <- root.p
+    attr(loglik, "intermediates") <- ans
+    attr(loglik, "vals") <- vals
+  }
+
+  loglik
 }

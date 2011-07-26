@@ -85,7 +85,7 @@ mcmc.geosse <- mcmc.lowerzero
 
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
-## almost identical to make.cache.bisse(), but uses three states
+## almost identical to make.cache.[bi,mu]sse()
 make.cache.geosse <- function(tree, states, unresolved=NULL,
                               sampling.f=NULL, nt.extra=10,
                               strict=TRUE) {
