@@ -9,14 +9,14 @@
 ##   7. initial.conditions
 ##   8. branches
 
-# The full PunctSSE parameter structure is a vector with, for n states:
+# The full ClaSSE parameter structure is a vector with, for n states:
 #     n * n * (n+1) / 2  speciation rates (lambda_ijk, j <= k)
 #     n                  extinction rates (mu_i)
 #     n * n - n          transition rates (q_ij, i != j)
 #   = (n + 3) * n^2 / 2  elements
 
 ## 1: make
-make.punctsse <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
+make.classe <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
                        control=list()) {
   control <- check.control.ode(control)
   backend <- control$backend
@@ -26,11 +26,11 @@ make.punctsse <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
   cache <- make.cache.musse(tree, states, k, sampling.f, strict)
   
   # some cvodes stuff will come here
-  branches <- make.branches.punctsse(cache, control)
+  branches <- make.branches.classe(cache, control)
 
-  initial.conditions.punctsse <- make.initial.conditions.punctsse(k)
+  initial.conditions.classe <- make.initial.conditions.classe(k)
 
-  ll.punctsse <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
+  ll.classe <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
                        root.p=NULL, intermediates=FALSE) {
     npars <- (k + 3) * k * k / 2
     if ( length(pars) != npars )
@@ -42,24 +42,24 @@ make.punctsse <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
       warning("Ignoring specified root state")
 
     # some cvodes stuff will come here
-    ll.xxsse.punctsse(pars, cache, initial.conditions.punctsse, branches,
+    ll.xxsse.classe(pars, cache, initial.conditions.classe, branches,
              condition.surv, root, root.p, intermediates)
   }
 
-  # ll <- function(pars, ...) ll.punctsse(pars, ...)
-  class(ll.punctsse) <- c("punctsse", "function")
-  attr(ll.punctsse, "k") <- k
-  ll.punctsse
+  # ll <- function(pars, ...) ll.classe(pars, ...)
+  class(ll.classe) <- c("classe", "function")
+  attr(ll.classe, "k") <- k
+  ll.classe
 }
 
 ## 2: print
-print.punctsse <- function(x, ...) {
-  cat("PunctSSE likelihood function:\n")
+print.classe <- function(x, ...) {
+  cat("ClaSSE likelihood function:\n")
   print(unclass(x))
 }
 
 ## 3: argnames / argnames <-
-argnames.punctsse <- function(x, k=attr(x, "k"), ...) {
+argnames.classe <- function(x, k=attr(x, "k"), ...) {
   ret <- attr(x, "argnames")
   if ( is.null(ret) ) {
     fmt <- sprintf("%%0%dd", ceiling(log10(k + .5)))
@@ -75,7 +75,7 @@ argnames.punctsse <- function(x, k=attr(x, "k"), ...) {
     ret
   }
 }
-`argnames<-.punctsse` <- function(x, value) {
+`argnames<-.classe` <- function(x, value) {
   k <- attr(x, "k")
   if ( length(value) != (k+3)*k*k/2 )
     stop("Invalid names length")
@@ -86,28 +86,28 @@ argnames.punctsse <- function(x, k=attr(x, "k"), ...) {
 }
 
 # Note: Might eventually want utilities for converting from/to list-of-arrays
-# parameter specification: flatten.pars.punctsse() and listify.pars.punctsse().
+# parameter specification: flatten.pars.classe() and listify.pars.classe().
 
 ## 4: find.mle
-find.mle.punctsse <- function(func, x.init, method, fail.value=NA, ...) {
+find.mle.classe <- function(func, x.init, method, fail.value=NA, ...) {
   if ( missing(method) )
     method <- "subplex"
-  NextMethod("find.mle", method=method, class.append="fit.mle.punctsse")
+  NextMethod("find.mle", method=method, class.append="fit.mle.classe")
 }
 
-mcmc.punctsse <- mcmc.lowerzero
+mcmc.classe <- mcmc.lowerzero
 
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip)
-# Note: punctsse uses the same functions as musse here:
-#       initial.tip.punctsse() = initial.tip.musse()
-#       make.cache.punctsse() = make.cache.musse()
+# Note: classe uses the same functions as musse here:
+#       initial.tip.classe() = initial.tip.musse()
+#       make.cache.classe() = make.cache.musse()
 
-## 6: ll.punctsse is done within make.punctsse
+## 6: ll.classe is done within make.classe
 
 ## 7: initial.conditions:
-# save on index computations by wrappping initial.conditions.punctsse
-make.initial.conditions.punctsse <- function(n)
+# save on index computations by wrappping initial.conditions.classe
+make.initial.conditions.classe <- function(n)
 {
   # n = number of states; called k elsewhere but k is used as an index below
   nseq <- seq_len(n)
@@ -118,7 +118,7 @@ make.initial.conditions.punctsse <- function(n)
   k <- unlist(lapply(1:n, function(i) nseq[i:n]))
   d <- rep(NA, n)
 
-  initial.conditions.punctsse <- function(init, pars, t, is.root=FALSE) {
+  initial.conditions.classe <- function(init, pars, t, is.root=FALSE) {
     # E_i(t), same for N and M
     e <- init[nseq,1]
 
@@ -142,7 +142,7 @@ make.initial.conditions.punctsse <- function(n)
 }
 
 ## 8: branches
-make.branches.punctsse <- function(cache, control) {
+make.branches.classe <- function(cache, control) {
   k <- cache$k
   neq <- as.integer(2*k)
   np <- as.integer((k+3)*k*k/2)
@@ -158,13 +158,13 @@ make.branches.punctsse <- function(cache, control) {
   idx.pars <- list(qmat=qmat, idx.qmat=idx.qmat, idx.q=idx.q, idx.lm=idx.lm)
 
   # Consequently, can't use the generic make.ode.branches().
-  make.ode.branches.punctsse("punctsse", "diversitreeGP", neq, np, comp.idx,
+  make.ode.branches.classe("classe", "diversitreeGP", neq, np, comp.idx,
                              control, idx.pars)
 }
 
 ## This is instead of make.ode.branches() in diversitree-branches.R.
 ## It's separate because parameter re-organization happens within branches().
-make.ode.branches.punctsse <- function(model, dll, neq, np, comp.idx, control,
+make.ode.branches.classe <- function(model, dll, neq, np, comp.idx, control,
                                        idx.pars) {
   backend <- control$backend
   safe <- control$safe
@@ -187,16 +187,16 @@ make.ode.branches.punctsse <- function(model, dll, neq, np, comp.idx, control,
     diag(qmat) <- -rowSums(qmat)
     pars <- c(pars[idx.lm], qmat)
     ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1,drop=FALSE]
-    # old: t(punctsse.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
+    # old: t(classe.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
   }
 
   make.branches(branches, comp.idx, eps)
 }
 
-# don't see a need for punctsse.Q()
+# don't see a need for classe.Q()
 
 # based on starting.point.geosse()
-starting.point.punctsse <- function(tree, k, eps=0.5) {
+starting.point.classe <- function(tree, k, eps=0.5) {
   if (eps == 0) {
     s <- (log(Ntip(tree)) - log(2)) / max(branching.times(tree))
     x <- 0
@@ -211,7 +211,7 @@ starting.point.punctsse <- function(tree, k, eps=0.5) {
     q <- s - x
   }
   p <- c( rep(s / (k*(k+1)/2), k*k*(k+1)/2 ), rep(x, k), rep(q, k*(k-1)) )
-  names(p) <- argnames.punctsse(NULL, k=k)
+  names(p) <- argnames.classe(NULL, k=k)
   p
 }
 
@@ -224,14 +224,14 @@ starting.point.punctsse <- function(tree, k, eps=0.5) {
 # modified from diversitree-branches.R: root.p.xxsse()
 #   returned p is always a vector of length k (or NULL)
 #   equilibrium freqs not available even for k = 2
-root.p.punctsse <- function(vals, pars, root, root.p=NULL) {
+root.p.classe <- function(vals, pars, root, root.p=NULL) {
   k <- length(vals) / 2
   d.root <- vals[(k+1):(2*k)]
 
   if ( root == ROOT.FLAT )
     p <- rep(1/k, k)
   else if ( root == ROOT.EQUI )
-    stop("Equilibrium root freqs not available for PunctSSE")
+    stop("Equilibrium root freqs not available for ClaSSE")
   else if ( root == ROOT.OBS )
     p <- d.root / sum(d.root)
   else if ( root == ROOT.GIVEN ) {
@@ -247,7 +247,7 @@ root.p.punctsse <- function(vals, pars, root, root.p=NULL) {
 
 ## modified from diversitree-branches.R: root.xxsse()
 ##   the only difference is lambda
-root.punctsse <- function(vals, pars, lq, condition.surv, root.p) {
+root.classe <- function(vals, pars, lq, condition.surv, root.p) {
   logcomp <- sum(lq)
 
   k <- length(vals) / 2
@@ -274,14 +274,14 @@ root.punctsse <- function(vals, pars, lq, condition.surv, root.p) {
 
 ## modified from diversitree-branches.R: ll.xxsse()
 ##   only difference is names of root function calls (the above functions)
-ll.xxsse.punctsse <- function(pars, cache, initial.conditions,
+ll.xxsse.classe <- function(pars, cache, initial.conditions,
                      branches, condition.surv, root, root.p,
                      intermediates) {
   ans <- all.branches.matrix(pars, cache, initial.conditions, branches)
   # vals <- ans$init[[cache$root]]
   vals <- ans$init[,cache$root]
-  root.p <- root.p.punctsse(vals, pars, root, root.p)
-  loglik <- root.punctsse(vals, pars, ans$lq, condition.surv, root.p)
+  root.p <- root.p.classe(vals, pars, root, root.p)
+  loglik <- root.classe(vals, pars, ans$lq, condition.surv, root.p)
 
   if ( intermediates ) {
     ans$root.p <- root.p
