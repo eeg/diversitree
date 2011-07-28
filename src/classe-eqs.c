@@ -65,14 +65,8 @@ void initmod_classe(void (* odeparms)(int *, double *)) {
   parms_classe = REAL(get_deSolve_gparms());
 } 
 
-void derivs_classe(int *neq, double *t, double *y, double *ydot,
-                     double *yout, int *ip)
-{
-  /* saves a little time to pre-compute indices outside of do_derivs_classe
-   * would be better to do it outside of here, too, though */
-  int n = *neq / 2;
-  int len_lam_i = n * (n + 1) / 2;
-  int jk_array[len_lam_i][2];
+/* compute indices for the lambda's */
+void fill_jk_array(int jk_array[][2], int n) {
   int j, k, m;
   m = 0;
   for (j=0; j<n; j++)
@@ -84,6 +78,17 @@ void derivs_classe(int *neq, double *t, double *y, double *ydot,
       m++;
     }
   }
+}
+
+void derivs_classe(int *neq, double *t, double *y, double *ydot,
+                     double *yout, int *ip) {
+  int n = *neq / 2;
+
+  /* saves a little time to pre-compute indices outside of do_derivs_classe;
+   * but do it outside of here, too? */
+  int len_lam_i = n * (n + 1) / 2;
+  int jk_array[len_lam_i][2];
+  fill_jk_array(jk_array, n);
 
   do_derivs_classe(n, parms_classe, y, ydot, jk_array);
 }
@@ -94,19 +99,10 @@ int derivs_classe_cvode(realtype t, N_Vector y, N_Vector ydot,
   const UserData *data = (UserData*) user_data;
 
   int n = data->neq/2;
+
   int len_lam_i = n * (n + 1) / 2;
-  int jk_array[len_lam_i][2]; /* TODO: share this with funcs above */
-  int j, k, m;
-  m = 0;
-  for (j=0; j<n; j++)
-  {
-    for (k=j; k<n; k++)
-    {
-      jk_array[m][0] = j;
-      jk_array[m][1] = k;
-      m++;
-    }
-  }
+  int jk_array[len_lam_i][2];
+  fill_jk_array(jk_array, n);
 
   do_derivs_classe(data->neq/2,
                    data->p,
@@ -120,28 +116,17 @@ void initial_conditions_classe(int neq, double *vars_l, double *vars_r,
   /* note: n = num states is called k elsewhere, but k is used as 
    * an index here */
   const int n = neq/2;
+  double *lambda = pars, *lambda_i;
+  int i, j, k, m;
+
+  int len_lam_i = n * (n + 1) / 2;
+  int jk_array[len_lam_i][2];
+  fill_jk_array(jk_array, n);
 
   /* E: */
   memcpy(vars_out, vars_l, n * sizeof(double));
 
-  /* D: */ /* FIXME */
-
-  int len_lam_i = n * (n + 1) / 2;
-  double *lambda = pars, *lambda_i;
-  int jk_array[len_lam_i][2]; /* TODO: share this with funcs above */
-  int i, j, k, m;
-
-  m = 0;
-  for (j=0; j<n; j++)
-  {
-    for (k=j; k<n; k++)
-    {
-      jk_array[m][0] = j;
-      jk_array[m][1] = k;
-      m++;
-    }
-  }
-
+  /* D: */
   for(i=0; i<n; i++)
   {
     vars_out[i+n] = 0;
