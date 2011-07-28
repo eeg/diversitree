@@ -331,9 +331,9 @@ void dt_cvodes_run(RCvodesObj *obj, double *y_in,
     if ( t1 - t > SMALL_STEP ) {
       tmp = dt_cvodes_run_1(obj, t, t1, comp_idx, comp_n, eps);
       if ( tmp == R_NegInf ) {
-	y = (i == 0) ? y_in : base + neq * target[i-1];
-	tmp = dt_cvodes_run_multi(obj, y, t, t1, comp_idx, comp_n, 
-				  eps, 1);
+        y = (i == 0) ? y_in : base + neq * target[i-1];
+        tmp = dt_cvodes_run_multi(obj, y, t, t1, comp_idx, comp_n, 
+                                  eps, 1);
       }
       lq_cum += tmp;
     }

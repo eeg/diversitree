@@ -25,8 +25,10 @@ make.classe <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
   nt.extra <- 10
   cache <- make.cache.musse(tree, states, k, sampling.f, strict)
   
-  # some cvodes stuff will come here
-  branches <- make.branches.classe(cache, control)
+  if ( backend == "CVODES" )
+    all.branches <- make.all.branches.C.classe(cache, control)
+  else
+    branches <- make.branches.classe(cache, control)
 
   initial.conditions.classe <- make.initial.conditions.classe(k)
 
@@ -41,12 +43,14 @@ make.classe <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
     if ( !is.null(root.p) &&  root != ROOT.GIVEN )
       warning("Ignoring specified root state")
 
-    # some cvodes stuff will come here
-    ll.xxsse.classe(pars, cache, initial.conditions.classe, branches,
-             condition.surv, root, root.p, intermediates)
+    if ( backend == "CVODES" )
+      ll.xxsse.classe.C(pars, all.branches,
+                        condition.surv, root, root.p, intermediates)
+    else
+      ll.xxsse.classe(pars, cache, initial.conditions.classe, branches,
+                      condition.surv, root, root.p, intermediates)
   }
 
-  # ll <- function(pars, ...) ll.classe(pars, ...)
   class(ll.classe) <- c("classe", "function")
   attr(ll.classe, "k") <- k
   ll.classe
@@ -145,7 +149,8 @@ make.initial.conditions.classe <- function(n)
 make.branches.classe <- function(cache, control) {
   k <- cache$k
   neq <- as.integer(2*k)
-  np <- as.integer((k+3)*k*k/2)
+  np0 <- as.integer((k+3)*k*k/2)  # number of actual params
+  np <- np0 + k                   # number, including Q's diagonal elements
   comp.idx <- as.integer((k+1):(2*k))
 
   # These indices are used for flattening the parameter structure.
@@ -154,7 +159,7 @@ make.branches.classe <- function(cache, control) {
                unlist(lapply(1:k, function(i) (1:k)[-i])))
   x <- k * k * (k + 1) / 2 + k
   idx.lm <- seq_len(x)
-  idx.q <- seq(x+1, np)
+  idx.q <- seq(x+1, np0)
   idx.pars <- list(qmat=qmat, idx.qmat=idx.qmat, idx.q=idx.q, idx.lm=idx.lm)
 
   # Consequently, can't use the generic make.ode.branches().
@@ -162,35 +167,25 @@ make.branches.classe <- function(cache, control) {
                              control, idx.pars)
 }
 
-## This is instead of make.ode.branches() in diversitree-branches.R.
-## It's separate because parameter re-organization happens within branches().
-make.ode.branches.classe <- function(model, dll, neq, np, comp.idx, control,
-                                       idx.pars) {
-  backend <- control$backend
-  safe <- control$safe
-  tol <- control$tol
-  eps <- control$eps
+make.all.branches.C.classe <- function(cache, control) {
+  k <- cache$k
+  neq <- as.integer(2*k)
+  np0 <- as.integer((k+3)*k*k/2)  # number of actual params
+  np <- np0 + k                   # number, including Q's diagonal elements
+  comp.idx <- as.integer((k+1):(2*k))
 
-  qmat <- idx.pars$qmat
-  idx.qmat <- idx.pars$idx.qmat
-  idx.q <- idx.pars$idx.q
-  idx.lm <- idx.pars$idx.lm
+  # These indices are used for flattening the parameter structure.
+  qmat <- matrix(0, k, k)
+  idx.qmat <- cbind(rep(1:k, each=k-1),
+               unlist(lapply(1:k, function(i) (1:k)[-i])))
+  x <- k * k * (k + 1) / 2 + k
+  idx.lm <- seq_len(x)
+  idx.q <- seq(x+1, np0)
+  idx.pars <- list(qmat=qmat, idx.qmat=idx.qmat, idx.q=idx.q, idx.lm=idx.lm)
 
-  # some cvodes stuff will go here
-  initfunc <- sprintf("initmod_%s", model)
-  derivs <- sprintf("derivs_%s", model)
-
-  RTOL <- ATOL <- tol
-  ode <- make.ode(derivs, dll, initfunc, neq, safe)
-  branches <- function(y, len, pars, t0) {
-    qmat[idx.qmat] <- pars[idx.q]
-    diag(qmat) <- -rowSums(qmat)
-    pars <- c(pars[idx.lm], qmat)
-    ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1,drop=FALSE]
-    # old: t(classe.ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1])
-  }
-
-  make.branches(branches, comp.idx, eps)
+  # Consequently, can't use the generic make.all.branches.C().
+  make.all.branches.C.classe2(cache, "classe", "diversitreeGP",
+                              neq, np, comp.idx, control, idx.pars)
 }
 
 # don't see a need for classe.Q()
@@ -278,7 +273,6 @@ ll.xxsse.classe <- function(pars, cache, initial.conditions,
                      branches, condition.surv, root, root.p,
                      intermediates) {
   ans <- all.branches.matrix(pars, cache, initial.conditions, branches)
-  # vals <- ans$init[[cache$root]]
   vals <- ans$init[,cache$root]
   root.p <- root.p.classe(vals, pars, root, root.p)
   loglik <- root.classe(vals, pars, ans$lq, condition.surv, root.p)
@@ -290,4 +284,111 @@ ll.xxsse.classe <- function(pars, cache, initial.conditions,
   }
 
   loglik
+}
+
+ll.xxsse.classe.C <- function(pars, all.branches,
+                              condition.surv, root, root.p,
+                              intermediates) {
+  ans <- all.branches(pars, intermediates)
+  vals <- ans[[2]]
+  root.p <- root.p.classe(vals, pars, root, root.p)
+  loglik <- root.classe(vals, pars, ans[[1]], condition.surv, root.p)
+
+  if ( intermediates ) {
+    ans$intermediates$root.p <- root.p
+    attr(loglik, "intermediates") <- ans$intermediates
+    attr(loglik, "vals") <- vals
+  }
+
+  loglik
+}
+
+## modified from diversitree-branches.R: make.ode.branches()
+##   separate because parameter re-organization happens within branches()
+make.ode.branches.classe <- function(model, dll, neq, np, comp.idx, control,
+                                     idx.pars) {
+  backend <- control$backend
+  safe <- control$safe
+  tol <- control$tol
+  eps <- control$eps
+
+  qmat <- idx.pars$qmat
+  idx.qmat <- idx.pars$idx.qmat
+  idx.q <- idx.pars$idx.q
+  idx.lm <- idx.pars$idx.lm
+
+  if ( backend == "deSolve" ) {
+    initfunc <- sprintf("initmod_%s", model)
+    derivs <- sprintf("derivs_%s", model)
+
+    RTOL <- ATOL <- tol
+    ode <- make.ode(derivs, dll, initfunc, neq, safe)
+    branches <- function(y, len, pars, t0) {
+      qmat[idx.qmat] <- pars[idx.q]
+      diag(qmat) <- -rowSums(qmat)
+      pars <- c(pars[idx.lm], qmat)
+      ode(y, c(t0, t0+len), pars, rtol=RTOL, atol=ATOL)[-1,-1,drop=FALSE]
+    }
+  } else if ( backend == "cvodes" ) {
+    derivs <- sprintf("derivs_%s_cvode", model)
+
+    RTOL <- ATOL <- tol
+    ode <- cvodes(neq, np, derivs, RTOL, ATOL, dll)
+    branches <- function(y, len, pars, t0) {
+      qmat[idx.qmat] <- pars[idx.q]
+      diag(qmat) <- -rowSums(qmat)
+      pars <- c(pars[idx.lm], qmat)
+      ode(pars, y, c(t0, t0+len))[,-1,drop=FALSE]
+    }
+  } else {
+    stop("Invalid backend", backend)
+  }
+
+  make.branches(branches, comp.idx, eps)
+}
+
+## modified from diversitree-branches-C.R: make.all.branches.C()
+##   separate because parameter re-organization happens within branches()
+make.all.branches.C.classe2 <- function(cache, model, dll, neq, np, 
+                                        comp.idx, control, idx.pars) {
+  check.cvodes(error=TRUE)
+
+  tol <- control$tol
+  eps <- control$eps
+
+  cache <- toC.cache(cache, comp.idx)
+  neq <- as.integer(neq)
+  np  <- as.integer(np)
+
+  rhs.name <- sprintf("derivs_%s_cvode", model)
+  ic.name  <- sprintf("initial_conditions_%s", model)
+
+  rhs <- getNativeSymbolInfo(rhs.name, PACKAGE=dll)$address
+  ic  <- getNativeSymbolInfo(ic.name,  PACKAGE=dll)$address
+
+  rtol <- as.numeric(tol)
+  atol <- rep(as.numeric(tol), neq)
+
+  ptr <- .Call("r_make_dt_obj", cache, neq, np, rhs, ic, rtol, atol,
+               eps, PACKAGE="diversitreeGP")
+
+  qmat <- idx.pars$qmat
+  idx.qmat <- idx.pars$idx.qmat
+  idx.q <- idx.pars$idx.q
+  idx.lm <- idx.pars$idx.lm
+
+  function(pars, intermediates=FALSE) {
+    qmat[idx.qmat] <- pars[idx.q]
+    diag(qmat) <- -rowSums(qmat)
+    pars <- c(pars[idx.lm], qmat)
+
+    vals <- .Call("r_all_branches", ptr, pars, PACKAGE="diversitreeGP")
+    names(vals) <- c("lq", "vals")
+    if ( intermediates ) {
+      int <- .Call("r_get_vals", ptr, PACKAGE="diversitreeGP")
+      names(int) <- c("init", "base", "lq")
+      vals$intermediates <- int
+    }
+    vals
+  }
 }

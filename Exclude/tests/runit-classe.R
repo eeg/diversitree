@@ -1,4 +1,4 @@
-tol <- 1e-6
+tol <- 2e-6
 
 #--------------------------------------------------
 # read in test data
@@ -36,12 +36,34 @@ ttn3 <- read.ttn("classe-tree.ttn")
 #--------------------------------------------------
 
 lnL1.bisse <- make.bisse(ttn1$tree, ttn1$states)
+
 lnL1.classe <- make.classe(ttn1$tree, ttn1$states+1, 2)
+lnL1.c.classe <- make.classe(ttn1$tree, ttn1$states+1, 2, control=list(backend="cvodes"))
+lnL1.C.classe <- make.classe(ttn1$tree, ttn1$states+1, 2, control=list(backend="CVODES"))
+
 lnL1.classe2 <- constrain(lnL1.classe, lambda112~0, lambda122~0, lambda211~0, lambda212~0)
+lnL1.c.classe2 <- constrain(lnL1.c.classe, lambda112~0, lambda122~0, lambda211~0, lambda212~0)
+lnL1.C.classe2 <- constrain(lnL1.C.classe, lambda112~0, lambda122~0, lambda211~0, lambda212~0)
 
 lnL2.geosse <- make.geosse(ttn2$tree, ttn2$states)
+
 lnL2.classe <- make.classe(ttn2$tree, ttn2$states+1, 3)
+lnL2.c.classe <- make.classe(ttn2$tree, ttn2$states+1, 3, control=list(backend="cvodes"))
+lnL2.C.classe <- make.classe(ttn2$tree, ttn2$states+1, 3, control=list(backend="CVODES"))
+
 lnL2.classe2 <- constrain(lnL2.classe, lambda111~0, lambda122~0,
+                            lambda133~0, lambda211~0, lambda212~0, lambda213~0,
+                            lambda223~0, lambda233~0, lambda311~0, lambda312~0,
+                            lambda313~0, lambda322~0, lambda323~0,
+                            lambda112~lambda222, lambda113~lambda333, 
+                            mu1~0, q23~0, q32~0, q13~mu2, q12~mu3)
+lnL2.c.classe2 <- constrain(lnL2.c.classe, lambda111~0, lambda122~0,
+                            lambda133~0, lambda211~0, lambda212~0, lambda213~0,
+                            lambda223~0, lambda233~0, lambda311~0, lambda312~0,
+                            lambda313~0, lambda322~0, lambda323~0,
+                            lambda112~lambda222, lambda113~lambda333, 
+                            mu1~0, q23~0, q32~0, q13~mu2, q12~mu3)
+lnL2.C.classe2 <- constrain(lnL2.C.classe, lambda111~0, lambda122~0,
                             lambda133~0, lambda211~0, lambda212~0, lambda213~0,
                             lambda223~0, lambda233~0, lambda311~0, lambda312~0,
                             lambda313~0, lambda322~0, lambda323~0,
@@ -49,9 +71,12 @@ lnL2.classe2 <- constrain(lnL2.classe, lambda111~0, lambda122~0,
                             mu1~0, q23~0, q32~0, q13~mu2, q12~mu3)
 
 lnL3.classe <- make.classe(ttn3$tree, ttn3$states+1, 2)
-lnL3.classe2 <- constrain(lnL3.classe, lambda122~0, lambda211~0)
+lnL3.c.classe <- make.classe(ttn3$tree, ttn3$states+1, 2, control=list(backend="cvodes"))
+lnL3.C.classe <- make.classe(ttn3$tree, ttn3$states+1, 2, control=list(backend="CVODES"))
 
-# todo, add as argument to make.*sse: control=list(backend="CVODES")
+lnL3.classe2 <- constrain(lnL3.classe, lambda122~0, lambda211~0)
+lnL3.c.classe2 <- constrain(lnL3.c.classe, lambda122~0, lambda211~0)
+lnL3.C.classe2 <- constrain(lnL3.C.classe, lambda122~0, lambda211~0)
 
 #--------------------------------------------------
 # prepare parameter vectors
@@ -84,12 +109,20 @@ names(pars3.classe) <- argnames(lnL3.classe)
 test.lnL1 <- function()
 {
     argvals <- list(condition.surv=T)
-    ans <- -284.9406 # -284.9825
+    ans <- -284.9406
     checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans,
                 tolerance=tol)
     checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans,
                 tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe, c(list(pars1.classe), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe, c(list(pars1.classe), argvals)), ans,
+                tolerance=tol)
     checkEquals(do.call(lnL1.classe2, c(list(pars1.bisse), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe2, c(list(pars1.bisse), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe2, c(list(pars1.bisse), argvals)), ans,
                 tolerance=tol)
 
     argvals <- list(condition.surv=F)
@@ -98,7 +131,15 @@ test.lnL1 <- function()
                 tolerance=tol)
     checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans,
                 tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe, c(list(pars1.classe), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe, c(list(pars1.classe), argvals)), ans,
+                tolerance=tol)
     checkEquals(do.call(lnL1.classe2, c(list(pars1.bisse), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe2, c(list(pars1.bisse), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe2, c(list(pars1.bisse), argvals)), ans,
                 tolerance=tol)
 
     argvals <- list(condition.surv=T, root=ROOT.GIVEN, root.p=c(0.6, 0.4))
@@ -107,7 +148,15 @@ test.lnL1 <- function()
                 tolerance=tol)
     checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans,
                 tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe, c(list(pars1.classe), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe, c(list(pars1.classe), argvals)), ans,
+                tolerance=tol)
     checkEquals(do.call(lnL1.classe2, c(list(pars1.bisse), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe2, c(list(pars1.bisse), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe2, c(list(pars1.bisse), argvals)), ans,
                 tolerance=tol)
 }
 
@@ -119,7 +168,15 @@ test.lnL2 <- function()
                 tolerance=tol)
     checkEquals(do.call(lnL2.classe, c(list(pars2.classe), argvals)), ans,
                 tolerance=tol)
+    checkEquals(do.call(lnL2.c.classe, c(list(pars2.classe), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL2.C.classe, c(list(pars2.classe), argvals)), ans,
+                tolerance=tol)
     checkEquals(do.call(lnL2.classe2, c(list(pars2.geosse2), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL2.c.classe2, c(list(pars2.geosse2), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL2.C.classe2, c(list(pars2.geosse2), argvals)), ans,
                 tolerance=tol)
 
     argvals <- list(condition.surv=F, root=ROOT.GIVEN, root.p=c(0.5, 0.3, 0.2))
@@ -128,11 +185,22 @@ test.lnL2 <- function()
                 tolerance=tol)
     checkEquals(do.call(lnL2.classe, c(list(pars2.classe), argvals)), ans,
                 tolerance=tol)
+    checkEquals(do.call(lnL2.c.classe, c(list(pars2.classe), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL2.C.classe, c(list(pars2.classe), argvals)), ans,
+                tolerance=tol)
     checkEquals(do.call(lnL2.classe2, c(list(pars2.geosse2), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL2.c.classe2, c(list(pars2.geosse2), argvals)), ans,
+                tolerance=tol)
+    checkEquals(do.call(lnL2.C.classe2, c(list(pars2.geosse2), argvals)), ans,
                 tolerance=tol)
 }
 
 test.lnL3 <- function()
 {
-    checkEquals(lnL3.classe(pars3.classe), 36.75782, tolerance=tol) # 36.75776
+    ans <- 36.75782
+    checkEquals(lnL3.classe(pars3.classe), ans, tolerance=tol) # 36.75776
+    checkEquals(lnL3.c.classe(pars3.classe), ans, tolerance=tol)
+    checkEquals(lnL3.C.classe(pars3.classe), ans, tolerance=tol)
 }

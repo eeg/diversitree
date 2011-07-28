@@ -1,5 +1,3 @@
-## GeoSSE model, by Emma Goldberg <eeg@uic.edu>
-
 ## Models should provide:
 ##   1. make
 ##   2. print

@@ -71,22 +71,22 @@ void initmod_geosse(void (* odeparms)(int *, double *))
 }
 
 void derivs_geosse(int *neq, double *t, double *y, double *ydot, 
-		  double *yout, int *ip) {
+                   double *yout, int *ip) {
   do_derivs_geosse(parms_geosse, y, ydot);
 }
 
 /* CVODES */
 int derivs_geosse_cvode(realtype t, N_Vector y, N_Vector ydot,
-		       void *user_data) {
+                        void *user_data) {
   do_derivs_geosse(((UserData*) user_data)->p,
-		   NV_DATA_S(y),
-		   NV_DATA_S(ydot));
+                   NV_DATA_S(y),
+                   NV_DATA_S(ydot));
   return 0;
 }
 
 void initial_conditions_geosse(int neq, double *vars_l, double *vars_r,
-			       double *pars, double t, 
-			       double *vars_out) {
+                               double *pars, double t, 
+                               double *vars_out) {
   /* E.AB, E.A, E.B */
   vars_out[0] = vars_l[0];
   vars_out[1] = vars_l[1];
@@ -95,8 +95,8 @@ void initial_conditions_geosse(int neq, double *vars_l, double *vars_r,
   /* D.CAB (Eq. 2c) */
   vars_out[3] =
     0.5 * ((vars_l[3] * vars_r[4] + vars_l[4] * vars_r[3]) * pars[0] +
-	   (vars_l[3] * vars_r[5] + vars_l[5] * vars_r[3]) * pars[1] +
-	   (vars_l[4] * vars_r[5] + vars_l[5] * vars_r[4]) * pars[2]);
+        (vars_l[3] * vars_r[5] + vars_l[5] * vars_r[3]) * pars[1] +
+        (vars_l[4] * vars_r[5] + vars_l[5] * vars_r[4]) * pars[2]);
 
   /* D.CA, D.CB  (Eq. 2ab) */
   vars_out[4] = vars_l[4] * vars_r[4] * pars[0];

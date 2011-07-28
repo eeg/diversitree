@@ -202,7 +202,7 @@ check.control.ode <- function(control=list()) {
   if ( !is.numeric(control$eps) )
     stop("control$eps must be numeric")
   if ( !is.logical(control$safe) )
-    stop("control$eps must be logical")
+    stop("control$safe must be logical")
 
   control
 }
