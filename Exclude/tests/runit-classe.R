@@ -143,7 +143,7 @@ test.lnL1 <- function()
                 tolerance=tol)
 
     argvals <- list(condition.surv=T, root=ROOT.GIVEN, root.p=c(0.6, 0.4))
-    ans <- -285.0867 # -285.2641
+    ans <- -285.0867
     checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans,
                 tolerance=tol)
     checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans,
@@ -163,7 +163,7 @@ test.lnL1 <- function()
 test.lnL2 <- function()
 {
     argvals <- list(condition.surv=T)
-    ans <- -387.278 # -387.1200
+    ans <- -387.278
     checkEquals(do.call(lnL2.geosse, c(list(pars2.geosse), argvals)), ans,
                 tolerance=tol)
     checkEquals(do.call(lnL2.classe, c(list(pars2.classe), argvals)), ans,
@@ -200,7 +200,7 @@ test.lnL2 <- function()
 test.lnL3 <- function()
 {
     ans <- 36.75782
-    checkEquals(lnL3.classe(pars3.classe), ans, tolerance=tol) # 36.75776
+    checkEquals(lnL3.classe(pars3.classe), ans, tolerance=tol)
     checkEquals(lnL3.c.classe(pars3.classe), ans, tolerance=tol)
     checkEquals(lnL3.C.classe(pars3.classe), ans, tolerance=tol)
 }
