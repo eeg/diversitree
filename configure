@@ -1248,6 +1248,7 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-gcc-speedy     use agressive optimisation with gcc
   --enable-cvodes         enable the cvodes integrator
+  --enable-gcc-strict     use strict gcc error checking
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -3465,6 +3466,17 @@ _ACEOF
 fi
 
 
+# Check whether --enable-gcc-strict was given.
+if test "${enable_gcc_strict+set}" = set; then
+  enableval=$enable_gcc_strict; gcc_strict=$enableval
+fi
+
+if  test x"$gcc_strict" = xyes ; then
+   echo "Using strict C checking"
+   PKG_CFLAGS="-Wall -ansi -pedantic ${PKG_CFLAGS}"
+else
+   echo "Using normal C checking"
+fi
 
 if test "${GCC}" = yes; then
    echo "Using strict C checking"

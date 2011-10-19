@@ -1,7 +1,7 @@
 Package: diversitreeGP
 Title: diversitree: comparative phylogenetic tests of diversification
-Version: 0.7-6
-Date: 2011-07-11
+Version: 0.7-7
+Date: 2011-07-18
 Author: Richard G. FitzJohn <fitzjohn@zoology.ubc.ca>, with GeoSSE and
   ClaSSE by Emma E. Goldberg <eeg@uic.edu>.
 Maintainer: Richard G. FitzJohn <fitzjohn@zoology.ubc.ca>
@@ -23,4 +23,4 @@ Description: Contains a number of comparative phylogenetic methods,
   *** EEG: ClaSSE = anagenetic + cladogenetic change ***
 License: GPL (>=2)
 URL: http://www.zoology.ubc.ca/prog/diversitree
-Packaged: 2011-07-11 23:28:09 UTC; rich
+Packaged: 2011-07-18 23:58:22 UTC; rich
