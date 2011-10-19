@@ -100,17 +100,7 @@ all.branches.matrix <- function(pars, cache, initial.conditions,
     branch.base[,cache$preset$target] <- cache$preset$base
   }
 
-  if ( !is.null(names(y)) ) {
-    tip.t <- y$t
-    tip.target <- y$target
-    tip.y <- branch.init[,tip.target] <- y$t
-    for ( i in seq_along(idx) ) {
-      j <- tip.target[i]
-      ans <- branches(tip.y[,i], tip.t[i], pars, 0)
-      lq[j] <- ans[[1]]
-      branch.base[,j] <- ans[[2]]
-    }
-  } else {
+  if ( is.null(names(y)) ) { # dt.tips.grouped
     for ( x in y ) {
       idx <- x$target
       unpack <- x$unpack
@@ -118,6 +108,16 @@ all.branches.matrix <- function(pars, cache, initial.conditions,
       ans <- branches(x$y, x$t.uniq, pars, 0)
       lq[idx] <- ans[[1]][unpack]
       branch.base[,idx] <- ans[[2]][,unpack]
+    }
+  } else { # dt.tips.ordered
+    tip.t <- y$t
+    tip.target <- y$target
+    tip.y <- branch.init[,tip.target] <- y$y
+    for ( i in seq_along(tip.t) ) {
+      j <- tip.target[i]
+      ans <- branches(tip.y[,i], tip.t[i], pars, 0)
+      lq[j] <- ans[[1]]
+      branch.base[,j] <- ans[[2]]
     }
   }
 
@@ -157,7 +157,7 @@ all.branches.list <- function(pars, cache, initial.conditions,
     branch.base[cache$preset$target] <- cache$preset$base
   }
 
-  if ( is.null(names(y)) ) {
+  if ( is.null(names(y)) ) { # dt.tips.grouped
     for ( x in y ) {
       idx <- x$target
       branch.init[idx] <- list(x$y)
@@ -166,11 +166,11 @@ all.branches.list <- function(pars, cache, initial.conditions,
       lq[idx] <- unlist(lapply(ans, "[[", 1))
       branch.base[idx] <- lapply(ans, "[", -1)
     }
-  } else {
+  } else { # dt.tips.ordered
     tip.t <- y$t
     tip.target <- y$target
     tip.y <- branch.init[tip.target] <- y$y
-    for ( i in seq_along(tip.y) ) {
+    for ( i in seq_along(tip.t) ) {
       j <- tip.target[i]
       ans <- branches(tip.y[[i]], tip.t[i], pars, 0)
       lq[j] <- ans[1]
