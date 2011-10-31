@@ -137,7 +137,7 @@ starting.point.bisse(tree, q.div=5, yule=FALSE)
 \section{ODE solver control}{
   The differential equations that define the BiSSE model are solved
   numerically using deSolve's LSODA ODE solver or the CVODES solver from
-  the SUNDIALS suite of solves.  The \code{control} argument to
+  the SUNDIALS suite of solvers.  The \code{control} argument to
   \code{make.bisse} controls the behaviour of the integrator.  This is a
   list that may contain elements:
   
@@ -169,6 +169,8 @@ starting.point.bisse(tree, q.div=5, yule=FALSE)
       deSolve integrator?  Leave this alone (this will be automatically
       selected when appropriate).}
   }
+
+  \code{deSolve} is the only supported backend on Windows.
 }
 
 \seealso{
@@ -197,10 +199,6 @@ lik(pars) # -159.71
 ## Heuristic guess at a starting point, based on the constant-rate
 ## birth-death model (uses \link{make.bd}).
 p <- starting.point.bisse(phy)
-
-%% This is code for better getting at the q's
-%% system.time(find.mle(constrain(make.mk2(phy, phy$tip.state), q10 ~
-%% q01), .1)$par)
 
 ## Start an ML search from this point.  This takes some time (~7s)
 fit <- find.mle(lik, p, method="subplex")

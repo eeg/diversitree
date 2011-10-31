@@ -1,7 +1,7 @@
 Package: diversitree
 Title: diversitree: comparative phylogenetic tests of diversification
-Version: 0.7-3
-Date: 2010-05-12
+Version: 0.7-7
+Date: 2010-07-18
 Author: Richard G. FitzJohn <fitzjohn@zoology.ubc.ca>, with GeoSSE by
   Emma E. Goldberg <eeg@uic.edu>.
 Maintainer: Richard G. FitzJohn <fitzjohn@zoology.ubc.ca>
@@ -22,4 +22,4 @@ Description: Contains a number of comparative phylogenetic methods,
   extinction.
 License: GPL (>=2)
 URL: http://www.zoology.ubc.ca/prog/diversitree
-Packaged: 2011-05-15 22:24:29 UTC; rich
+Packaged: 2011-07-18 23:58:22 UTC; rich

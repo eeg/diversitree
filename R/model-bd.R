@@ -83,8 +83,6 @@ find.mle.bd <- function(func, x.init, method,
   ## slightly less trivial than one would hope (need to get access to
   ## the cache, which might be hidden by a constraint...
   if ( missing(x.init) ) {
-    ## tmp <- find.mle.yule(func, ...)
-    ## x.init <- structure(c(tmp$par, 0), names=argnames(func))
     warning("Guessing initial parameters - may do badly")
     x.init <- structure(c(.2, .1), names=argnames(func))
   }
@@ -98,12 +96,10 @@ find.mle.bd <- function(func, x.init, method,
 
 find.mle.yule <- function(func, x.init, method, fail.value=NA,
                           ...) {
-  ## TODO: I think this will fail after constraining, which should not
-  ## be done.
-  ## TODO: This is only true for certain cases (no funny business with
-  ## sampling.f/unresolved - this might require moving to
-  ## numeric solutions?)
   cache <- environment(func)$cache
+
+  ## This analytic solution is only correct when the tree is fully
+  ## resolved.  This is enforced by the make.yule function.
   condition.surv <- list(...)$condition.surv
   if ( is.null(condition.surv) )
     condition.surv <- TRUE
@@ -116,6 +112,7 @@ find.mle.yule <- function(func, x.init, method, fail.value=NA,
               code=0,
               gradient=NA,
               method="analytic")
+
   class(obj) <- c("fit.mle.yule", "fit.mle")
   obj
 }
@@ -136,40 +133,12 @@ make.cache.bd <- function(tree=NULL, times=NULL,
     times <- as.numeric(sort(times, decreasing=TRUE))
   }
 
-  if ( inherits(tree, "clade.tree") ) {
-    if ( !is.null(unresolved) )
-      stop("'unresolved' cannot be specified where 'tree' is a clade.tree")
-    unresolved <- make.unresolved.bd(tree$clades)
-  }
+  unresolved <- check.unresolved.bd(tree, unresolved)
 
   if ( !is.null(sampling.f) && !is.null(unresolved) )
     stop("Cannot specify both sampling.f and unresolved")
   else
     sampling.f <- check.sampling.f(sampling.f, 1)
-
-  if ( !is.null(unresolved) && length(unresolved) > 0 ) {
-    if ( is.null(names(unresolved)) || !is.numeric(unresolved) )
-      stop("'unresolved' must be a named numeric vector")
-    if ( !(all(names(unresolved) %in% tree$tip.label)) )
-      stop("Unknown species in 'unresolved'")
-    if ( any(unresolved < 1) )
-      stop("All unresolved entries must be > 0")
-
-    if ( any(unresolved == 1) ) {
-      warning("Removing unresolved entries that are one")
-      unresolved <- unresolved[unresolved != 1]
-    }
-
-    if ( length(unresolved) == 0 )
-      unresolved <- NULL
-    else {
-      i <- match(names(unresolved), tree$tip.label)
-      unresolved <- list(n=unresolved,
-                         t=tree$edge.length[match(i, tree$edge[,2])])
-    }
-  } else {
-    unresolved <- NULL
-  }
 
   x <- c(NA, times)
   N <- length(x)
@@ -187,7 +156,6 @@ make.cache.bd <- function(tree=NULL, times=NULL,
        n.node=n.node)
 }
 
-## TODO: Has argument checking been lost here?
 ## This allows r < 0, a > 1.  a < 0 is not allowed though
 ## Also, if r < 0, then a must > 1 (and vv.).  XOR captures this.
 ##   if ( a < 0 || sign(1-a) != sign(r) ) return(-Inf)
@@ -205,12 +173,11 @@ ll.bd <- function(cache, pars, prior=NULL, condition.surv=TRUE) {
     stop("Incorrect number of parameters")
   if ( pars[2] == pars[1] )
     pars[1] <- pars[1] + 1e-12
-
-  r <- pars[1] - pars[2]
-  a <- pars[2] / pars[1]
-
   if ( pars[1] <= 0 || pars[2] < 0 )
     return(-Inf)
+
+  r <- pars[[1]] - pars[[2]]
+  a <- pars[[2]] / pars[[1]]
 
   if ( f < 1 )
     loglik <- lfactorial(N - 1) +

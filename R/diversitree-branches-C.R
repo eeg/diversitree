@@ -75,27 +75,10 @@ ll.xxsse.C <- function(pars, all.branches,
   loglik <- root.xxsse(vals, pars, ans[[1]], condition.surv, root.p)
 
   if ( intermediates ) {
-    ## attr(loglik, "cache") # can't provide this one
     ans$intermediates$root.p <- root.p
     attr(loglik, "intermediates") <- ans$intermediates
     attr(loglik, "vals") <- vals
   }
 
   loglik
-}
-
-do.asr.marginal.C <- function(pars, cache, ptr, nodes, states.idx.C,
-                              parent.C, all.branches.C, root.f, env) {
-  if ( is.null(nodes) )
-    nodes <- cache$root:max(cache$order)
-  else
-    nodes <- nodes + cache$n.tip
-
-  ## Initial run through sets up the internal data structures (never
-  ## used here)
-  ignore <- all.branches.C(pars)
-
-  ## Then we actually compute the marginal ASRs:
-  .Call("r_asr_marginal", ptr, pars, toC.int(nodes),
-        states.idx.C, parent.C, root.f, env)
 }

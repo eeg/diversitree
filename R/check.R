@@ -31,15 +31,15 @@ check.tree <- function(tree, ultrametric=TRUE, bifurcating=TRUE,
 check.states <- function(tree, states, allow.unnamed=FALSE,
                          strict=FALSE, strict.vals=NULL) {
   if ( is.matrix(states) ) {
+    ## Multistate characters (experimental).  This will not work with
+    ## clade trees, but they are only interesting for BiSSE, which has
+    ## NA values for multistate (even weight).
+    if ( inherits(tree, "clade.tree") )
+      stop("Clade trees won't work with multistate tips yet")
     n <- rowSums(states > 0)
     if ( any(n == 0) )
       stop(sprintf("No state found for taxa: %s",
                    paste(names(tmp)[n == 0], collapse=", ")))
-    ## TODO:
-    ## (that said, multistates are only interesting for >2 states,
-    ## and clade trees won't behave for those anyway)
-    if ( inherits(tree, "clade.tree") )
-      stop("Clade trees won't work with multistate tips yet")
 
     i.mono <- which(n == 1)
     i.mult <- which(n >  1)
@@ -74,13 +74,22 @@ check.states <- function(tree, states, allow.unnamed=FALSE,
   if ( !all(tree$tip.label %in% names(states)) )
     stop("Not all species have state information")
 
-  ## TODO: When multistate characters are present, this will fail...
-  if ( strict && !is.null(strict.vals) )
-    if ( !isTRUE(all.equal(sort(strict.vals),
-                           sort(unique(na.omit(states))))) )
-      stop("Because strict state checking requested, all (and only) ",
-           sprintf("states in %s are allowed",
-                   paste(strict.vals, collapse=", ")))
+  ## TODO: When multistate characters are present, this may fail even
+  ## for cases where it should not.
+  if ( !is.null(strict.vals) ) {
+    if ( strict ) {
+      if ( !isTRUE(all.equal(sort(strict.vals),
+                             sort(unique(na.omit(states))))) )
+        stop("Because strict state checking requested, all (and only) ",
+             sprintf("states in %s are allowed",
+                     paste(strict.vals, collapse=", ")))
+    } else {
+      extra <- setdiff(sort(unique(na.omit(states))), strict.vals)
+      if ( length(extra) > 0 )
+        stop(sprintf("Unknown states %d not allowed in states vector",
+                     paste(extra, collapse=", ")))
+    }
+  }
 
   if ( inherits(tree, "clade.tree") ) {
     spp.clades <- unlist(tree$clades)
@@ -196,4 +205,58 @@ check.control.ode <- function(control=list()) {
     stop("control$eps must be logical")
 
   control
+}
+
+check.pars.bisse <- function(pars) {
+  if ( length(pars) != 6 )
+    stop("Invalid parameter length (expected 6)")
+  if ( any(pars < 0) || any(!is.finite(pars)) )
+    stop("Parameters must be non-negative and finite")
+  TRUE
+}
+
+check.pars.musse <- function(pars, k) {
+  if ( length(pars) != k*(k + 1) )
+    stop(sprintf("Invalid length parameters (expected %d)",
+                 k*(k+1)))
+  if ( any(pars < 0) || any(!is.finite(pars)) )
+    stop("Parameters must be non-negative and finite")
+  TRUE
+}
+
+check.unresolved.bd <- function(tree, unresolved) {
+  ## This covers against
+  ##   tree=NULL, times=c(...)
+  ## with unresolved clades.
+  if ( is.null(tree) )
+    stop("Cannot just specify times when using unresolved clades")
+
+  if ( inherits(tree, "clade.tree") ) {
+    if ( !is.null(unresolved) )
+      stop("'unresolved' cannot be specified where 'tree' is a clade.tree")
+    unresolved <- make.unresolved.bd(tree$clades)
+  } else if ( !is.null(unresolved) && length(unresolved) > 0 ) {
+    if ( is.null(names(unresolved)) || !is.numeric(unresolved) )
+      stop("'unresolved' must be a named numeric vector")
+    if ( !(all(names(unresolved) %in% tree$tip.label)) )
+      stop("Unknown species in 'unresolved'")
+    if ( any(unresolved < 1) )
+      stop("All unresolved entries must be > 0")
+
+    if ( any(unresolved == 1) ) {
+      warning("Removing unresolved entries that are one")
+      unresolved <- unresolved[unresolved != 1]
+    }
+
+    if ( length(unresolved) == 0 )
+      unresolved <- NULL
+    else {
+      i <- match(names(unresolved), tree$tip.label)
+      unresolved <- list(n=unresolved,
+                         t=tree$edge.length[match(i, tree$edge[,2])])
+    }
+  } else {
+    unresolved <- NULL
+  }
+  unresolved
 }
