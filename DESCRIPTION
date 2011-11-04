@@ -20,6 +20,7 @@ Description: Contains a number of comparative phylogenetic methods,
   Other included methods include Markov models of discrete and
   continuous trait evolution and constant rate speciation and
   extinction.
+  2011-11-04: EEG added make.geosse.split()
 License: GPL (>=2)
 URL: http://www.zoology.ubc.ca/prog/diversitree
 Packaged: 2011-07-18 23:58:22 UTC; rich
