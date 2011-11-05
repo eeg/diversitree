@@ -1,0 +1,22 @@
+trait_type = region
+
+birth0  = 1.0  # speciation rate for region A
+birth1  = 1.0  # speciation rate for region B
+birthAB = 0.5  # allopatric speciation rate
+death0  = 0.1  # extinction rate for region A
+death1  = 0.1  # extinction rate for region B
+alpha   = 1.0  # rate of dispersal A -> B
+beta    = 1.0  # rate of dispersal B -> A
+end_t   = 5.0  # time for which to run the tree
+
+root_state = 0
+min_tips = 10
+min_two_states = 1
+
+num_trees = 1
+num_start = 0
+file_prefix = tree
+
+verbosity = 1
+write_nexus = 0
+write_ttn = 1
