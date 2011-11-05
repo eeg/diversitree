@@ -1,3 +1,8 @@
+2011-11-04  Emma Goldberg  <eeg@uic.edu>
+
+	* NOT A REAL RELEASE!!  Just added make.geosse.split() and 
+	called package the "diversitreeGS".
+
 2011-07-11  Rich FitzJohn  <fitzjohn@zoology.ubc.ca>
 
 	* DESCRIPTION: bump to 0.7-6
