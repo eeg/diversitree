@@ -150,7 +150,7 @@ make.ode <- function(func, dllname, initfunc, ny, safe=FALSE) {
                                                  fields="Version"))
     }
     ## Update here when deSolve is updated.
-    max.deSolve <- package_version("1.10-2")
+    max.deSolve <- package_version("1.10-3")
     if ( vers > max.deSolve ) {
       str <- paste("diversitree is not known to work with deSolve > ",
                    max.deSolve, "\n\tfalling back on slow version")
@@ -195,6 +195,22 @@ make.prior.ExpBeta <- function(r, beta) {
   }
 }
 
+## TODO: Allow vector lower and upper here...
+make.prior.uniform <- function(lower, upper) {
+  if ( length(lower) == 2 && missing(upper) ) {
+    upper <- lower[2]
+    lower <- lower[1]
+  }
+  n <- length(lower)
+  if ( length(upper) != n )
+    stop("'lower' and 'upper' both be the same length")
+  p <- log(1/(upper - lower))
+  function(x) {
+    ret <- rep(p, length=length(x))
+    ret[x < lower | x > upper] <- 0
+    ret
+  }
+}
 
 ## This is the same as the function in quasse2
 descendants <- function(node, edge) {
@@ -302,3 +318,11 @@ argnames.twopart.set <- function(x, value, n.base, n.level) {
   x
 }
 
+set.defaults <- function(f, defaults) {
+  if ( is.null(defaults) )
+    return(f)
+  if ( !all(names(defaults) %in% names(formals(f))) )
+    stop("Unknown defaults")
+  formals(f)[names(defaults)] <- defaults
+  f
+}

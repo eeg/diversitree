@@ -19,7 +19,11 @@ mcmc <- function(lik, x.init, nsteps, ...) {
 mcmc.default <- function(lik, x.init, nsteps, w, prior=NULL,
                          sampler=sampler.slice, fail.value=-Inf,
                          lower=-Inf, upper=Inf, print.every=1,
-                         control=list(), ...) {
+                         control=list(),
+                         save.every=0, save.file, ...) {
+  if ( save.every > 0 && missing(save.file) )
+    stop("save.file must be given if save.every > 0")
+    
   npar <- length(x.init)
   if ( is.null(names(x.init)) )
     try(names(x.init) <- argnames(lik), silent=TRUE)
@@ -33,7 +37,8 @@ mcmc.default <- function(lik, x.init, nsteps, w, prior=NULL,
 
   y.init <- posterior(x.init, fail.value=NULL)
 
-  if ( !is.finite(y.init) || y.init == fail.value )
+  if ( !is.finite(y.init) ||
+      (!is.null(fail.value) && y.init == fail.value) )
     stop("Starting point must have finite probability")
 
   lower <- check.par.length(lower, npar)
@@ -47,6 +52,13 @@ mcmc.default <- function(lik, x.init, nsteps, w, prior=NULL,
   if ( is.null(sampler) )
     sampler <- sampler.slice
 
+  clean.hist <- function(hist) {
+    out <- cbind(i=seq_along(hist),
+                  as.data.frame(t(sapply(hist, unlist))))
+    names(out)[ncol(out)] <- "p"
+    out
+  }
+
   mcmc.loop <- function() {
     for ( i in seq_len(nsteps) ) {
       hist[[i]] <<- tmp <- sampler(posterior, x.init, y.init, w,
@@ -57,6 +69,13 @@ mcmc.default <- function(lik, x.init, nsteps, w, prior=NULL,
         cat(sprintf("%d: {%s} -> %2.5f\n", i,
                     paste(sprintf("%2.4f", tmp[[1]]), collapse=", "),
                     tmp[[2]]))
+      if ( save.every > 0 && i %% save.every == 0 ) {
+        ok <- try(write.csv(clean.hist(hist[seq_len(i)]),
+                            save.file, row.names=FALSE))
+        if ( inherits(ok, "try-error") )
+          warning("Error while writing progress file (continuing)",
+                  immediate.=TRUE)
+      }
     }
     hist
   }
@@ -72,11 +91,8 @@ mcmc.default <- function(lik, x.init, nsteps, w, prior=NULL,
   }
 
   hist <- tryCatch(mcmc.loop(), interrupt=mcmc.recover)
-  hist <- cbind(i=seq_along(hist),
-                as.data.frame(t(sapply(hist, unlist))))
-  names(hist)[ncol(hist)] <- "p"
 
-  hist
+  clean.hist(hist)
 }
 
 ## This is common, so this helps reduce code duplication.

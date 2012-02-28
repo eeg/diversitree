@@ -128,6 +128,9 @@ check.sampling.f <- function(sampling.f, n) {
 check.sampling.f.split <- function(sampling.f, n, n.part) {
   if ( is.null(sampling.f) )
     rep(list(rep(1, n)), n.part)
+  else if ( n == 1 && is.numeric(sampling.f) &&
+           length(sampling.f == n.part) )
+    check.sampling.f(sampling.f, n.part)
   else if ( is.numeric(sampling.f) )
     rep(list(check.sampling.f(sampling.f, n)), n.part)
   else if ( is.list(sampling.f) )
@@ -224,6 +227,14 @@ check.pars.musse <- function(pars, k) {
   TRUE
 }
 
+check.pars.bm <- function(pars) {
+  if ( length(pars) != 1 )
+    stop("Incorrect parameter length")
+  if ( pars[1] <= 0 )
+    stop("Diffusion must be positive")
+  TRUE
+}
+
 check.unresolved.bd <- function(tree, unresolved) {
   ## This covers against
   ##   tree=NULL, times=c(...)
@@ -259,4 +270,28 @@ check.unresolved.bd <- function(tree, unresolved) {
     unresolved <- NULL
   }
   unresolved
+}
+
+check.control.split <- function(control) {
+  if ( is.null(control$caching.branches) )
+    control$caching.branches <- FALSE
+  else {
+    val <- control$caching.branches
+    if ( !(length(val) == 1 && val %in% c(TRUE, FALSE)) )
+      stop("Invalid value for control$caching.branches")
+  }
+  control
+}
+
+check.control.continuous <- function(control) {
+  defaults <- list(method="vcv")
+  control <- modifyList(control, defaults)
+  if ( length(control$method) != 1 )
+    stop("control$method must be a scalar")
+  methods <- c("vcv", "direct")
+  control$method <- pmatch(control$method, methods, nomatch=NA)
+  if ( is.na(control$method) )
+    stop(sprintf("control$method must be in %s",
+                 paste(methods, collapse=", ")))
+  control
 }
