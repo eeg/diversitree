@@ -131,10 +131,11 @@ make.cache.geosse <- function(tree, states, unresolved=NULL,
 ##
 ## Initial conditions at the tips are given by their tip states:
 ## There are four types of initial condition in geosse:
-##   state0: c(f_0, 0,   0,    1-f_0, 1-f_1, 1-f_2)
-##   state1: c(0,   f_1, 0,    1-f_0, 1-f_1, 1-f_2)
-##   state2: c(0,   0,   f_2,  1-f_0, 1-f_1, 1-f_2)
-##   state?: c(f_0, f_1, f_2,  1-f_0, 1-f_1, 1-f_2)
+##             E0   E1   E2    D0     D1     D2
+##   state0: c(1-f_0, 1-f_1, 1-f_2, f_0, 0,   0, )
+##   state1: c(1-f_0, 1-f_1, 1-f_2, 0,   f_1, 0, )
+##   state2: c(1-f_0, 1-f_1, 1-f_2, 0,   0,   f_2)
+##   state?: c(1-f_0, 1-f_1, 1-f_2, f_0, f_1, f_2)
 initial.tip.geosse <- function(cache) {
   f <- cache$sampling.f
   y <- list(c(1-f, f[1], 0, 0),
@@ -216,23 +217,6 @@ stationary.freq.geosse <- function(pars) {
   evA$vectors[,i] / sum(evA$vectors[,i])
 }
 
-## ## dunno if this is much better than nothing... should come up with
-## ## something more sensible
-## starting.point.geosse <- function(tree, q.div=5, yule=FALSE) {
-##   ## RGF: Use qs estimated from Mk2?  Can be slow is the only reason
-##   ## I have not set this up by default.
-##   ## find.mle(constrain(make.mk2(phy, phy$tip.state), q10 ~ q01), .1)$par
-##   pars.bd <- suppressWarnings(starting.point.bd(tree, yule))
-##   if  ( pars.bd[1] > pars.bd[2] )
-##     p <- rep(c(pars.bd, (pars.bd[1] - pars.bd[2]) / q.div), each=2)
-##   else
-##     p <- rep(c(pars.bd, pars.bd[1] / q.div), each=2)
-##   p <- c(p[1], p)
-##   names(p) <- argnames.geosse(NULL)
-##   p
-## }
-
-## Replacement function from Emma, 4 Nov 2010.
 ## from Magallon & Sanderson (2001), rather than a bd fit
 starting.point.geosse <- function(tree, yule=FALSE) {
  if (yule) {
@@ -266,9 +250,9 @@ starting.point.geosse <- function(tree, yule=FALSE) {
 ## generalized with the aid of classes.  At the moment, though, separate 
 ## seems better than integrated.
 
-# modified from diversitree-branches.R: root.p.xxsse()
-#   allows ROOT.EQUI for geosse
-#   returned p is always a vector of length k (or NULL)
+## modified from diversitree-branches.R: root.p.xxsse()
+##   allows ROOT.EQUI for geosse
+##   returned p is always a vector of length k (or NULL)
 root.p.geosse <- function(vals, pars, root, root.p=NULL) {
   k <- length(vals) / 2
   d.root <- vals[-seq_len(k)]

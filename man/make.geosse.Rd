@@ -169,9 +169,9 @@ lik(pars, root=ROOT.GIVEN, root.p=c(0,1,0))
   trait-dependent speciation and extinction rates from incompletely
   resolved phylogenies. Syst. Biol. 58:595-611.
   
-  Goldberg E.E., Lancaster L.T., and Ree R.H. Phylogenetic inference of
-  reciprocal effects between geographic range evolution and
-  diversification. in review at Syst Biol.
+  Goldberg E.E., Lancaster L.T., and Ree R.H. 2011. Phylogenetic
+  inference of reciprocal effects between geographic range evolution and
+  diversification. Syst. Biol. 60:451-465.
 
   Maddison W.P., Midford P.E., and Otto S.P. 2007. Estimating
   a binary character's effect on speciation and
