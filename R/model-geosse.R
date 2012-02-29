@@ -287,9 +287,10 @@ root.geosse <- function(vals, pars, lq, condition.surv, root.p) {
 
   if ( condition.surv )
   {
-    # AB species are subject to all three speciation rates
+    ## AB species are subject to all three speciation rates
     lambda <- c(sum(pars[1:3]), pars[1:2])
-    d.root <- d.root / (lambda * (1-e.root)^2)
+    ## d.root <- d.root / (lambda * (1-e.root)^2) # old
+    d.root <- d.root / sum(root.p * lambda * (1 - e.root)^2)
   }
 
   if ( is.null(root.p) ) # ROOT.BOTH
