@@ -22,7 +22,6 @@ make.classe <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
   backend <- control$backend
 
   unresolved <- NULL
-  nt.extra <- 10
   cache <- make.cache.musse(tree, states, k, sampling.f, strict)
   
   if ( backend == "CVODES" )
@@ -186,6 +185,8 @@ make.all.branches.C.classe <- function(cache, control) {
 
 ## don't see a need for classe.Q()
 
+## todo, at least for k = 2: stationary.freq.classe
+
 ## based on starting.point.geosse()
 starting.point.classe <- function(tree, k, eps=0.5) {
   if (eps == 0) {
@@ -205,12 +206,6 @@ starting.point.classe <- function(tree, k, eps=0.5) {
   names(p) <- argnames.classe(NULL, k=k)
   p
 }
-
-## NOTE:
-## Functions below are taken from diversitree-branches.R.  Internal
-## modifications were necessary, but the parent functions could likely be
-## generalized by passing some more functions as arguments.  At the moment,
-## though, separate seems better than integrated.
 
 ## modified from diversitree-branches.R: root.xxsse()
 ##   the only difference is lambda

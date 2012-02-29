@@ -1,4 +1,5 @@
 tol <- 1e-6
+# TODO: add cvodes tests
 
 #--------------------------------------------------
 # test data for everything below
@@ -9,6 +10,8 @@ states <- c(0, 1, 0, 2, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0)
 names(states) <- as.character(seq(Ntip(tree))-1)
 
 lnL.full <- make.geosse(tree, states)
+lnL.full.c <- make.geosse(tree, states, control=list(backend="cvodes"))
+lnL.full.C <- make.geosse(tree, states, control=list(backend="CVODES"))
 
 rate.names <- c("sA", "sB", "sAB", "xA", "xB", "dA", "dB")
 pars0 <- c(0.9, 0.8, 0.1, 0.2, 0.3, 0.5, 0.6)
@@ -34,8 +37,12 @@ test.lnL <- function()
 {
     pars <- pars0
     checkEquals(lnL.full(pars), -24.07128, tolerance=tol)
+    checkEquals(lnL.full(pars), lnL.full.c(pars), tolerance=tol)
+    checkEquals(lnL.full(pars), lnL.full.C(pars), tolerance=tol)
     checkEquals(lnL.full(pars, condition.surv=F), -23.71574, tolerance=tol)
     checkEquals(lnL.full(pars, root=ROOT.EQUI), -24.25509, tolerance=tol)
+    checkEquals(lnL.full(pars, root=ROOT.EQUI), lnL.full.c(pars, root=ROOT.EQUI), tolerance=tol)
+    checkEquals(lnL.full(pars, root=ROOT.EQUI), lnL.full.C(pars, root=ROOT.EQUI), tolerance=tol)
     checkEquals(lnL.full(pars, root=ROOT.GIVEN, root.p=c(0.6,0.4,0.2)), 
                 -24.1432, tolerance=tol)
     checkEquals(lnL.full(pars, root=ROOT.GIVEN, root.p=rep(1,3)/3), 
@@ -46,6 +53,10 @@ test.lnL <- function()
 
     lnL <- constrain(lnL.full, dB ~ dA, sAB ~ 0)
     checkEquals(lnL(pars[-c(3,7)]), -24.05792, tolerance=tol)
+    lnL.c <- constrain(lnL.full.c, dB ~ dA, sAB ~ 0)
+    lnL.C <- constrain(lnL.full.C, dB ~ dA, sAB ~ 0)
+    checkEquals(lnL(pars[-c(3,7)]), lnL.c(pars[-c(3,7)]), tolerance=tol)
+    checkEquals(lnL(pars[-c(3,7)]), lnL.C(pars[-c(3,7)]), tolerance=tol)
 }
 
 test.mle <- function()

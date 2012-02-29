@@ -18,37 +18,49 @@ make.geosse <- function(tree, states, sampling.f=NULL, strict=TRUE,
   backend <- control$backend
 
   unresolved <- NULL
-  nt.extra <- 10
-  cache <- make.cache.geosse(tree, states, unresolved=unresolved,
-                             sampling.f=sampling.f, nt.extra=nt.extra,
-                             strict=strict)
+  cache <- make.cache.geosse(tree, states, sampling.f, strict)
 
   if ( backend == "CVODES" )
     all.branches <- make.all.branches.C.geosse(cache, control)
   else
     branches <- make.branches.geosse(cache, control)
 
-  ll <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
-                 root.p=NULL, intermediates=FALSE) {
-    if ( length(pars) != 7 )
-      stop("Invalid parameter length (expected 7)")
-    if ( any(pars < 0) || any(!is.finite(pars)))
-      return(-Inf)
+  initial.conditions <- initial.conditions.geosse
+
+  ll.geosse <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
+                        root.p=NULL, intermediates=FALSE) {
+    check.pars.geosse(pars)
     if ( !is.null(root.p) && root != ROOT.GIVEN )
       warning("Ignoring specified root state")
 
-    ## would need something here for unresolved
+    if ( backend == "CVODES" ) {
+      ans <- all.branches(pars, intermediates)
+      lq <- ans[[1]]
+      vals <- ans[[2]]
 
-    if ( backend == "CVODES" )
-      ll.xxsse.geosse.C(pars, all.branches,
-                        condition.surv, root, root.p, intermediates)
-    else
-      ll.xxsse.geosse(pars, cache, initial.conditions.geosse, branches,
-                      condition.surv, root, root.p, intermediates)
+      if ( intermediates ) {
+        ans <- .Call("r_get_vals", ptr, PACKAGE="diversitree")
+        names(ans) <- c("init", "base", "lq")
+      }
+    } else {
+      ans <- all.branches.matrix(pars, cache,
+                                 initial.conditions, branches)
+      lq <- ans$lq
+      vals <- ans$init[,cache$root]
+    }
+    root.p <- root.p.geosse(vals, pars, root, root.p)
+    loglik <- root.geosse(vals, pars, lq, condition.surv, root.p)
+
+    if ( intermediates ) {
+      ans$root.p <- root.p
+      attr(loglik, "intermediates") <- ans
+      attr(loglik, "vals") <- vals
+    }
+    loglik
   }
 
-  class(ll) <- c("geosse", "function")
-  ll
+  class(ll.geosse) <- c("geosse", "function")
+  ll.geosse
 }
 
 ## 2: print
@@ -85,39 +97,18 @@ mcmc.geosse <- mcmc.lowerzero
 ## Make requires the usual functions:
 ## 5: make.cache (initial.tip, root)
 ## almost identical to make.cache.bisse(), but uses three states
-make.cache.geosse <- function(tree, states, unresolved=NULL,
-                              sampling.f=NULL, nt.extra=10,
+make.cache.geosse <- function(tree, states, sampling.f=NULL, 
                               strict=TRUE) {
-  ## RGF: There is a potential issue here with states, as
-  ## 'unresolved' may contain one of the states.  For now I am
-  ## disabling the check, but this is not great.
-  if ( strict && !is.null(unresolved) ) {
-    strict <- FALSE
-  }
-
   tree <- check.tree(tree)
   states <- check.states(tree, states, strict=strict, strict.vals=0:2)
-
-  ## check unresolved
-  if ( !is.null(unresolved) | inherits(tree, "clade.tree") ) {
-    stop("Unresolved clades not yet available for GeoSSE")
-  }
-
-  ## Check 'sampling.f'
-  if ( !is.null(sampling.f) && !is.null(unresolved) )
-    stop("Cannot specify both sampling.f and unresolved")
-  else
-    sampling.f <- check.sampling.f(sampling.f, 3)
+  states <- check.integer(states)
+  sampling.f <- check.sampling.f(sampling.f, 3)
 
   cache <- make.cache(tree)
   cache$ny <- 6L
   cache$tip.state  <- states
   cache$sampling.f <- sampling.f
-  ##cache$unresolved <- unresolved # would need more here
-  
-  ## This avoids a warning in the case where all tips are unresolved.
-  if ( length(cache$tips) > 0 )
-    cache$y <- initial.tip.geosse(cache)
+  cache$y <- initial.tip.geosse(cache)
 
   cache
 }
@@ -188,10 +179,6 @@ make.all.branches.C.geosse <- function(cache, control) {
                       neq, np, comp.idx, control)
 }
 
-## 9: branches.unresolved
-branches.unresolved.geosse <- function(...)
-  stop("Cannot yet use unresolved clades with GeoSSE")
-
 ## Additional functions
 stationary.freq.geosse <- function(pars) {
   sA  <- pars[1]
@@ -236,18 +223,6 @@ starting.point.geosse <- function(tree, yule=FALSE) {
  names(p) <- argnames.geosse(NULL)
  p
 }
-
-## For GeoSSE, think about what a sensible set of default models would be.
-## all.models.geosse <- function(f, p, ...) { ... }
-
-## check.unresolved would go here
-## mle and anova stuff is covered generically in mle.R
-
-## NOTE:
-## Functions below are taken from diversitree-branches.R.  Internal
-## modifications were necessary, but the parent functions could likely be
-## generalized with the aid of classes.  At the moment, though, separate 
-## seems better than integrated.
 
 ## modified from diversitree-branches.R: root.p.xxsse()
 ##   allows ROOT.EQUI for geosse
@@ -299,38 +274,10 @@ root.geosse <- function(vals, pars, lq, condition.surv, root.p) {
   loglik
 }
 
-## modified from diversitree-branches.R: ll.xxsse()
-##   only difference is names of root function calls (the above functions)
-ll.xxsse.geosse <- function(pars, cache, initial.conditions,
-                            branches, condition.surv, root, root.p,
-                            intermediates) {
-  ans <- all.branches.matrix(pars, cache, initial.conditions, branches)
-  vals <- ans$init[,cache$root]
-  root.p <- root.p.geosse(vals, pars, root, root.p)
-  loglik <- root.geosse(vals, pars, ans$lq, condition.surv, root.p)
-
-  if ( intermediates ) {
-    ans$root.p <- root.p
-    attr(loglik, "intermediates") <- ans
-    attr(loglik, "vals") <- vals
-  }
-
-  loglik
-}
-
-ll.xxsse.geosse.C <- function(pars, all.branches,
-                              condition.surv, root, root.p,
-                              intermediates) {
-  ans <- all.branches(pars, intermediates)
-  vals <- ans[[2]]
-  root.p <- root.p.geosse(vals, pars, root, root.p)
-  loglik <- root.geosse(vals, pars, ans[[1]], condition.surv, root.p)
-
-  if ( intermediates ) {
-    ans$intermediates$root.p <- root.p
-    attr(loglik, "intermediates") <- ans$intermediates
-    attr(loglik, "vals") <- vals
-  }
-
-  loglik
+check.pars.geosse <- function(pars) {
+  if ( length(pars) != 7 )
+    stop("Invalid parameter length (expected 7)")
+  if ( any(!is.finite(pars)) || any(pars < 0) )
+    stop("Parameters must be non-negative and finite")
+  TRUE
 }
