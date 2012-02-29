@@ -33,19 +33,19 @@ test.starting <- function()
 test.lnL <- function()
 {
     pars <- pars0
-    checkEquals(lnL.full(pars), -23.71574, tolerance=tol)
-    checkEquals(lnL.full(pars, condition.surv=T), -24.10259, tolerance=tol)
-    checkEquals(lnL.full(pars, root=ROOT.EQUI), -24.32152, tolerance=tol)
+    checkEquals(lnL.full(pars), -24.07128, tolerance=tol)
+    checkEquals(lnL.full(pars, condition.surv=F), -23.71574, tolerance=tol)
+    checkEquals(lnL.full(pars, root=ROOT.EQUI), -24.25509, tolerance=tol)
     checkEquals(lnL.full(pars, root=ROOT.GIVEN, root.p=c(0.6,0.4,0.2)), 
-                -23.78353, tolerance=tol)
+                -24.1432, tolerance=tol)
     checkEquals(lnL.full(pars, root=ROOT.GIVEN, root.p=rep(1,3)/3), 
                 lnL.full(pars, root=ROOT.FLAT), tolerance=tol)
 
     lnL <- constrain(lnL.full, sAB ~ 0)
-    checkEquals(lnL(pars[-3]), -23.56325, tolerance=tol)
+    checkEquals(lnL(pars[-3]), -23.86826, tolerance=tol)
 
     lnL <- constrain(lnL.full, dB ~ dA, sAB ~ 0)
-    checkEquals(lnL(pars[-c(3,7)]), -23.763, tolerance=tol)
+    checkEquals(lnL(pars[-c(3,7)]), -24.05792, tolerance=tol)
 }
 
 test.mle <- function()
@@ -53,21 +53,20 @@ test.mle <- function()
     pars <- pars0
     names(pars) <- argnames(lnL.full)
     ans <- find.mle(lnL.full, pars)
-    ans0.par <- c(1.592065e+00, 4.066657e-01, 7.598541e-06, 6.827111e-07, 
-                  1.675306e-04, 1.262941e+00, 1.252454e+00)
+    ans0.par <- c(1.483118e+00, 3.653205e-01, 2.478823e-07, 2.010653e-05, 
+                  3.944644e-06, 1.275225e+00, 1.206178e+00)
     names(ans0.par) <- rate.names
-    checkEquals(ans$par, ans0.par, tolerance=tol)
-    checkEquals(ans$lnLik, -18.77676, tolerance=tol)
+    checkEquals(coef(ans), ans0.par, tolerance=tol)
+    checkEquals(logLik(ans)[1], -19.32895, tolerance=tol)
 
     lnL <- constrain(lnL.full, dB ~ dA, sAB ~ 0)
     pars <- pars0[-c(3,7)]
     names(pars) <- argnames(lnL)
     ans <- find.mle(lnL, pars)
-    ans0.par <- c(1.591802e+00, 4.074054e-01, 2.284247e-06, 2.727531e-05, 
-                  1.262041e+00)
+    ans0.par <- c(1.481470e+00, 3.698169e-01, 9.211896e-09, 1.526980e-08, 1.270324e+00)
     names(ans0.par) <- rate.names[-c(3,7)]
-    checkEquals(ans$par, ans0.par, tolerance=tol)
-    checkEquals(ans$lnLik, -18.77673, tolerance=tol)
+    checkEquals(coef(ans), ans0.par, tolerance=tol)
+    checkEquals(logLik(ans)[1], -19.32908, tolerance=tol)
 }
 
 test.mcmc <- function()
@@ -77,14 +76,12 @@ test.mcmc <- function()
     ans <- mcmc(lnL.full, pars, nsteps=3, lower=0, upper=3, w=3/5, 
                 prior=make.prior.exponential(seq(0.8, by=0.1, length.out=7)),
                 print.every=0) 
-    print(ans)
-    checkEquals(ans$p[3], -29.78957, tolerance=tol)
+    checkEquals(ans$p[3], -30.56511, tolerance=tol)
 
     set.seed(1)
     lnL <- constrain(lnL.full, dB ~ dA, sAB ~ 0)
     pars <- pars0[-c(3,7)]
     ans <- mcmc(lnL, pars, nsteps=3, lower=0, upper=3, w=seq(0.8, by=0.1,
                 length.out=5), prior=make.prior.exponential(1), print.every=0)
-    print(ans)
-    checkEquals(ans$p[3], -24.58257, tolerance=tol)
+    checkEquals(ans$p[3], -28.18477, tolerance=tol)
 }

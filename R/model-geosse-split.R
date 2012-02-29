@@ -32,8 +32,7 @@ make.geosse.split <- function(tree, states, nodes, split.t,
 
   n.part <- cache$n.part
   
-  ## (note: condition.surv=TRUE in bisse)
-  ll <- function(pars, condition.surv=FALSE, root=ROOT.OBS,
+  ll <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
                  root.p=NULL, intermediates=FALSE) {
     pars <- check.par.multipart(pars, n.part, 7)
     pars.n <- unlist(pars)

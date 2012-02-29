@@ -28,8 +28,7 @@ make.geosse <- function(tree, states, sampling.f=NULL, strict=TRUE,
   else
     branches <- make.branches.geosse(cache, control)
 
-  ## (note: condition.surv=TRUE in bisse)  
-  ll <- function(pars, condition.surv=FALSE, root=ROOT.OBS,
+  ll <- function(pars, condition.surv=TRUE, root=ROOT.OBS,
                  root.p=NULL, intermediates=FALSE) {
     if ( length(pars) != 7 )
       stop("Invalid parameter length (expected 7)")
