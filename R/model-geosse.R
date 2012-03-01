@@ -48,7 +48,13 @@ make.geosse <- function(tree, states, sampling.f=NULL, strict=TRUE,
       lq <- ans$lq
       vals <- ans$init[,cache$root]
     }
-    root.p <- root.p.geosse(vals, pars, root, root.p)
+
+    ## hack to avoid needing root.p.geosse(); from bisseness
+    if ( root == ROOT.EQUI ) {
+      root <- ROOT.GIVEN
+      root.p <- stationary.freq.geosse(pars)
+    }
+    root.p <- root.p.xxsse(vals, pars, root, root.p)
     loglik <- root.geosse(vals, pars, lq, condition.surv, root.p)
 
     if ( intermediates ) {
@@ -222,30 +228,6 @@ starting.point.geosse <- function(tree, yule=FALSE) {
  p <- c(s, s, s, x, x, d, d)
  names(p) <- argnames.geosse(NULL)
  p
-}
-
-## modified from diversitree-branches.R: root.p.xxsse()
-##   allows ROOT.EQUI for geosse
-##   returned p is always a vector of length k (or NULL)
-root.p.geosse <- function(vals, pars, root, root.p=NULL) {
-  k <- length(vals) / 2
-  d.root <- vals[-seq_len(k)]
-
-  if ( root == ROOT.FLAT )
-    p <- rep(1/k, k)
-  else if ( root == ROOT.EQUI )
-    p <- stationary.freq.geosse(pars)
-  else if ( root == ROOT.OBS )
-    p <- d.root / sum(d.root)
-  else if ( root == ROOT.GIVEN ) {
-    if ( length(root.p) != length(d.root) )
-      stop("Invalid length for root.p")
-    p <- root.p
-  } else if ( root == ROOT.ALL )
-    p <- NULL
-  else
-    stop("Invalid root mode")
-  p
 }
 
 ## modified from diversitree-branches.R: root.xxsse()
