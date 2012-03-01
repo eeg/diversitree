@@ -1,5 +1,4 @@
 tol <- 1e-6
-# TODO: add cvodes tests
 
 #--------------------------------------------------
 # test data for everything below
@@ -37,12 +36,8 @@ test.lnL <- function()
 {
     pars <- pars0
     checkEquals(lnL.full(pars), -24.07128, tolerance=tol)
-    checkEquals(lnL.full(pars), lnL.full.c(pars), tolerance=tol)
-    checkEquals(lnL.full(pars), lnL.full.C(pars), tolerance=tol)
     checkEquals(lnL.full(pars, condition.surv=F), -23.71574, tolerance=tol)
     checkEquals(lnL.full(pars, root=ROOT.EQUI), -24.25509, tolerance=tol)
-    checkEquals(lnL.full(pars, root=ROOT.EQUI), lnL.full.c(pars, root=ROOT.EQUI), tolerance=tol)
-    checkEquals(lnL.full(pars, root=ROOT.EQUI), lnL.full.C(pars, root=ROOT.EQUI), tolerance=tol)
     checkEquals(lnL.full(pars, root=ROOT.GIVEN, root.p=c(0.6,0.4,0.2)), 
                 -24.1432, tolerance=tol)
     checkEquals(lnL.full(pars, root=ROOT.GIVEN, root.p=rep(1,3)/3), 
@@ -53,6 +48,17 @@ test.lnL <- function()
 
     lnL <- constrain(lnL.full, dB ~ dA, sAB ~ 0)
     checkEquals(lnL(pars[-c(3,7)]), -24.05792, tolerance=tol)
+}
+
+test.cvodes <- function()
+{
+    pars <- pars0
+    checkEquals(lnL.full(pars), lnL.full.c(pars), tolerance=tol)
+    checkEquals(lnL.full(pars), lnL.full.C(pars), tolerance=tol)
+    checkEquals(lnL.full(pars, root=ROOT.EQUI), lnL.full.c(pars, root=ROOT.EQUI), tolerance=tol)
+    checkEquals(lnL.full(pars, root=ROOT.EQUI), lnL.full.C(pars, root=ROOT.EQUI), tolerance=tol)
+
+    lnL <- constrain(lnL.full, dB ~ dA, sAB ~ 0)
     lnL.c <- constrain(lnL.full.c, dB ~ dA, sAB ~ 0)
     lnL.C <- constrain(lnL.full.C, dB ~ dA, sAB ~ 0)
     checkEquals(lnL(pars[-c(3,7)]), lnL.c(pars[-c(3,7)]), tolerance=tol)
@@ -95,4 +101,12 @@ test.mcmc <- function()
     ans <- mcmc(lnL, pars, nsteps=3, lower=0, upper=3, w=seq(0.8, by=0.1,
                 length.out=5), prior=make.prior.exponential(1), print.every=0)
     checkEquals(ans$p[3], -28.18477, tolerance=tol)
+}
+
+test.split <- function()
+{
+    # with 0.8-4, only split.t = Inf works (for any model)
+    lnL.split <- make.geosse.split(tree, states, c(27, 29), split.t = Inf)
+    checkEquals(lnL.full(pars0), lnL.split(rep(pars0, 3)), tolerance=tol)
+    checkEquals(lnL.split(c(pars0, pars0*1.5, pars0*0.5)), -23.82277, tolerance=tol)
 }
