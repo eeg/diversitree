@@ -75,6 +75,8 @@ lnL3.classe2 <- constrain(lnL3.classe, lambda122~0, lambda211~0)
 lnL3.c.classe2 <- constrain(lnL3.c.classe, lambda122~0, lambda211~0)
 lnL3.C.classe2 <- constrain(lnL3.C.classe, lambda122~0, lambda211~0)
 
+# TODO: add tests against bisseness for ttn3
+
 #--------------------------------------------------
 # prepare parameter vectors
 #--------------------------------------------------
@@ -98,6 +100,7 @@ pars2.geosse2 <- pars2.geosse[c(3,1,2,4:7)]
 
 pars3.classe <- c(5, 1, 0.1, 0.2, 2, 4, 3, 2.5, 2.1, 2.2)
 names(pars3.classe) <- argnames(lnL3.classe)
+pars3.classe2 <- pars3.classe[-c(3,4)]
 
 #--------------------------------------------------
 # test functions
@@ -108,54 +111,38 @@ test.lnL1 <- function()
 {
     argvals <- list(condition.surv=T)
     ans <- -284.9406
-    checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.c.classe, c(list(pars1.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.C.classe, c(list(pars1.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.classe2, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.c.classe2, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.C.classe2, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
+    checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.classe2, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe2, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe2, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
 
     argvals <- list(condition.surv=F)
     ans <- -284.9744
-    checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.c.classe, c(list(pars1.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.C.classe, c(list(pars1.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.classe2, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.c.classe2, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.C.classe2, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
+    checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.classe2, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe2, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe2, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
 
     argvals <- list(condition.surv=T, root=ROOT.GIVEN, root.p=c(0.6, 0.4))
     ans <- -285.0867
-    checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.c.classe, c(list(pars1.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.C.classe, c(list(pars1.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.classe2, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.c.classe2, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL1.C.classe2, c(list(pars1.bisse), argvals)), ans,
-                tolerance=tol)
+    checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.classe2, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.c.classe2, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.C.classe2, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+
+    argvals <- list(condition.surv=T, root=ROOT.EQUI)
+    ans <- -285.2541
+    checkEquals(do.call(lnL1.bisse, c(list(pars1.bisse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL1.classe, c(list(pars1.classe), argvals)), ans, tolerance=tol)
 }
 
 # compare classe with geosse
@@ -163,37 +150,28 @@ test.lnL2 <- function()
 {
     argvals <- list(condition.surv=T)
     ans <- -387.278
-    checkEquals(do.call(lnL2.geosse, c(list(pars2.geosse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.classe, c(list(pars2.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.c.classe, c(list(pars2.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.C.classe, c(list(pars2.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.classe2, c(list(pars2.geosse2), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.c.classe2, c(list(pars2.geosse2), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.C.classe2, c(list(pars2.geosse2), argvals)), ans,
-                tolerance=tol)
+    checkEquals(do.call(lnL2.geosse, c(list(pars2.geosse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.classe, c(list(pars2.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.c.classe, c(list(pars2.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.C.classe, c(list(pars2.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.classe2, c(list(pars2.geosse2), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.c.classe2, c(list(pars2.geosse2), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.C.classe2, c(list(pars2.geosse2), argvals)), ans, tolerance=tol)
 
     argvals <- list(condition.surv=F, root=ROOT.GIVEN, root.p=c(0.5, 0.3, 0.2))
     ans <- -386.9637
-    checkEquals(do.call(lnL2.geosse, c(list(pars2.geosse), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.classe, c(list(pars2.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.c.classe, c(list(pars2.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.C.classe, c(list(pars2.classe), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.classe2, c(list(pars2.geosse2), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.c.classe2, c(list(pars2.geosse2), argvals)), ans,
-                tolerance=tol)
-    checkEquals(do.call(lnL2.C.classe2, c(list(pars2.geosse2), argvals)), ans,
-                tolerance=tol)
+    checkEquals(do.call(lnL2.geosse, c(list(pars2.geosse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.classe, c(list(pars2.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.c.classe, c(list(pars2.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.C.classe, c(list(pars2.classe), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.classe2, c(list(pars2.geosse2), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.c.classe2, c(list(pars2.geosse2), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.C.classe2, c(list(pars2.geosse2), argvals)), ans, tolerance=tol)
+
+    argvals <- list(condition.surv=T, root=ROOT.EQUI)
+    ans <- -387.1794
+    checkEquals(do.call(lnL2.geosse, c(list(pars2.geosse), argvals)), ans, tolerance=tol)
+    checkEquals(do.call(lnL2.classe, c(list(pars2.classe), argvals)), ans, tolerance=tol)
 }
 
 test.lnL3 <- function()
@@ -202,4 +180,26 @@ test.lnL3 <- function()
     checkEquals(lnL3.classe(pars3.classe), ans, tolerance=tol)
     checkEquals(lnL3.c.classe(pars3.classe), ans, tolerance=tol)
     checkEquals(lnL3.C.classe(pars3.classe), ans, tolerance=tol)
+
+    ans <- 35.53881
+    checkEquals(lnL3.classe2(pars3.classe2), ans, tolerance=tol)
+    checkEquals(lnL3.c.classe2(pars3.classe2), ans, tolerance=tol)
+    checkEquals(lnL3.C.classe2(pars3.classe2), ans, tolerance=tol)
+
+    checkEquals(lnL3.classe(pars3.classe, root=ROOT.EQUI), 36.75766, tolerance=tol)
+    checkEquals(lnL3.classe2(pars3.classe2, root=ROOT.EQUI), 35.53928, tolerance=tol)
+}
+
+# no likelihoods, just parameters
+test.params <- function()
+{
+    ans <- c( rep(3.058056, 6), rep(4.587084, 2), rep(4.587084, 2) )
+    names(ans) <- argnames(lnL3.classe)
+    checkEquals(starting.point.classe(ttn3$tree, 2), ans, tolerance=tol)
+
+    checkEquals(diversitree:::stationary.freq.classe(pars1.classe, 2)[1], 
+                diversitree:::stationary.freq.bisse(pars1.bisse), tolerance=tol)
+
+    checkEquals(diversitree:::stationary.freq.classe(pars2.classe, 3), 
+                diversitree:::stationary.freq.geosse(pars2.geosse), tolerance=tol)
 }

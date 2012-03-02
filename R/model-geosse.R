@@ -49,7 +49,7 @@ make.geosse <- function(tree, states, sampling.f=NULL, strict=TRUE,
       vals <- ans$init[,cache$root]
     }
 
-    ## hack to avoid needing root.p.geosse(); from bisseness
+    ## hack (from bisseness) to avoid needing root.p.geosse()
     if ( root == ROOT.EQUI ) {
       root <- ROOT.GIVEN
       root.p <- stationary.freq.geosse(pars)
@@ -202,8 +202,7 @@ stationary.freq.geosse <- function(pars) {
                ), nrow=3, byrow=TRUE)
 
   ## continuous time, so the dominant eigenvalue is the largest one
-  ## find its index and get that eigenvector
-  ## return it, normalized so the elements sum to 1
+  ## return its eigenvector, normalized
   evA <- eigen(A)
   i <- which(evA$values == max(evA$values))
   evA$vectors[,i] / sum(evA$vectors[,i])

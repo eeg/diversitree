@@ -38,8 +38,12 @@ make.classe <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
     check.pars.classe(pars, k)
     if ( !is.null(root.p) &&  root != ROOT.GIVEN )
       warning("Ignoring specified root state")
-    if ( root == ROOT.EQUI )
-      stop("Equilibrium root freqs not available for ClaSSE")
+
+    ## hack (from bisseness) to avoid needing root.p.classe()
+    if ( root == ROOT.EQUI ) {
+      root <- ROOT.GIVEN
+      root.p <- stationary.freq.classe(pars, k)
+    }
 
     if ( backend == "CVODES" ) {
       ans <- all.branches(f.pars(pars), intermediates)
@@ -185,7 +189,72 @@ make.all.branches.C.classe <- function(cache, control) {
 
 ## don't see a need for classe.Q()
 
-## todo, at least for k = 2: stationary.freq.classe
+## like stationary.freq.bisse[ness], but always returns a vector
+stationary.freq.classe <- function(pars, k) {
+  if (k == 2) {
+    g <- (sum(pars[1:3]) - pars[7]) - (sum(pars[4:6]) - pars[8])
+    eps <- sum(pars[1:8]) * 1e-14
+    ss1 <- pars[9]  + 2*pars[3] + pars[2]  # shift from 1
+    ss2 <- pars[10] + 2*pars[4] + pars[5]  # shift from 2
+
+    if ( abs(g) < eps ) {
+      if (ss1 + ss2 == 0) 
+        eqfreq <- 0.5
+      else
+        eqfreq <- ss2/(ss1 + ss2)
+    } else {
+      roots <- quadratic.roots(g, ss2 + ss1 - g, -ss2)
+      eqfreq <- roots[roots >= 0 & roots <= 1]
+      if ( length(eqfreq) > 1 )
+        eqfreq <- NA
+      else
+        eqfreq <- c(eqfreq, 1 - eqfreq)
+    }
+  } else { ## also works for k=2, but much slower
+      eqfreq <- stationary.freq.classe.ev(pars, k)
+  }
+  eqfreq
+}
+
+## like stationary.freq.geosse()
+stationary.freq.classe.ev <- function(pars, k) {
+  nsum <- k*(k+1)/2
+  kseq <- seq_len(k)
+  pars.lam <- pars[seq(1, nsum*k)]
+  pars.mu <- pars[seq(nsum*k+1, (nsum+1)*k)]
+  pars.q <- pars[seq((nsum+1)*k+1, length(pars))]
+
+  ## will be the transition matrix
+  A <- matrix(0, nrow=k, ncol=k)
+
+  ## array indices of lambda's in parameter vector
+  idx.lam <- cbind(rep(kseq, each=nsum), rep(rep(kseq, times=seq(k,1,-1)), k),
+                   unlist(lapply(kseq, function(i) i:k)))
+  ## transpose of matrix indices of q's in parameter vector
+  idx.q <- cbind(unlist(lapply(kseq, function(i) (kseq)[-i])), 
+                 rep(kseq, each=k-1))
+
+  ## take care of off-diagonal elements
+  for (n in seq_len(nsum*k)) {
+    ## add this lambda to A[daughter states, parent state]
+    ## (separate steps in case the daughter states are the same)
+    r <- idx.lam[n,]
+    A[r[2], r[1]] <- A[r[2], r[1]] + pars.lam[n]
+    A[r[3], r[1]] <- A[r[3], r[1]] + pars.lam[n]
+  }
+  A[idx.q] <- A[idx.q] + pars.q
+
+  ## fix the diagonal elements
+  diag(A) <- 0
+  diag(A) <- -colSums(A) + unlist(lapply(kseq, function(i) 
+                 sum(pars.lam[seq((i-1)*nsum+1, i*nsum)]) - pars.mu[i]))
+
+  ## continuous time, so the dominant eigenvalue is the largest one
+  ## return its eigenvector, normalized
+  evA <- eigen(A)
+  i <- which(evA$values == max(evA$values))
+  evA$vectors[,i] / sum(evA$vectors[,i])
+}
 
 ## based on starting.point.geosse()
 starting.point.classe <- function(tree, k, eps=0.5) {
@@ -218,8 +287,7 @@ root.classe <- function(vals, pars, lq, condition.surv, root.p) {
   e.root <- vals[i]
   d.root <- vals[-i]
 
-  if ( condition.surv )
-  {
+  if ( condition.surv ) {
     ## species in state i are subject to all lambda_ijk speciation rates
     nsum <- k*(k+1)/2
     lambda <- colSums(matrix(pars[1:(nsum*k)], nrow=nsum))
