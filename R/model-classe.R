@@ -109,8 +109,52 @@ argnames.classe <- function(x, k=attr(x, "k"), ...) {
   x
 }
 
-# Note: Might eventually want utilities for converting from/to list-of-arrays
-# parameter specification: flatten.pars.classe() and listify.pars.classe().
+## These two functions are intended to make the classe parameters easier to
+## visualize and populate, since they get unwieldy with more than two states.
+## The speciation rate array is indexed lambda[parent state, daughter1 state,
+## daughter2 state].  The transition matrix is indexed q[from state, to state].
+## Elements that are not parameters get NA: daughter2 > daughter 1, from = to.
+## The parameter list might be a good way to work with constrain(), eventually.
+
+## Input: list containing lambda_ijk array, mu vector, q_ij array, num states
+## Output: parameter vector, ordered as argnames.classe describes
+flatten.pars.classe <- function(parlist) {
+  k <- parlist$nstates
+  kseq <- seq_len(k)
+
+  idx.lam <- cbind( rep(kseq, each=k*(k+1)/2), 
+                    rep(rep(kseq, times=seq(k,1,-1)), k), 
+                    unlist(lapply(kseq, function(i) i:k)) )
+
+  idx.q <- cbind( rep(kseq, each=k-1), 
+                  unlist(lapply(kseq, function(i) (kseq)[-i])) )
+
+  pars <- c(parlist$lambda[idx.lam], parlist$mu, parlist$q[idx.q])
+  names(pars) <- argnames.classe(NULL, k)
+  pars
+}
+
+## Output: list containing lambda_ijk array, mu vector, q_ij array, num states
+## Input: parameter vector, ordered as argnames.classe describes
+inflate.pars.classe <- function(pars, k) {
+  check.pars.classe(pars, k)
+  kseq <- seq_len(k)
+
+  Lam <- array(NA, dim=rep(k, 3))  # 3 = parent + 2 daughters
+  idx <- cbind(rep(kseq, each=k*(k+1)/2), rep(rep(kseq, times=seq(k,1,-1)), k),
+               unlist(lapply(kseq, function(i) i:k)))
+  j <- length(idx[,1])
+  Lam[idx] <- pars[seq(j)]
+
+  Mu <- pars[seq(j+1, j+k)]
+  names(Mu) <- NULL
+
+  Q <- array(NA, dim=rep(k, 2))
+  idx <- cbind(rep(kseq, each=k-1), unlist(lapply(kseq, function(i) kseq[-i])))
+  Q[idx] <- pars[seq(j+k+1, length(pars))]
+
+  list(lambda=Lam, mu=Mu, q=Q, nstates=k)
+}
 
 ## 4: find.mle
 find.mle.classe <- function(func, x.init, method, fail.value=NA, ...) {

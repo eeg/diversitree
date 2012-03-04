@@ -196,6 +196,10 @@ export(make.brownian.with.drift)
 export(mkn.multitrait.translate)
 export(musse.multitrait.translate)
 
+## Support for ClaSSE
+export(flatten.pars.classe)
+export(inflate.pars.classe)
+
 ## Deprecated:
 export(bisse.starting.point)
 export(starting.point)
