@@ -26,7 +26,7 @@ test.starting <- function()
     names(ans0) <- rate.names
     checkEquals(ans, ans0, tolerance=tol)
 
-    ans <- starting.point.geosse(tree, yule=TRUE)
+    ans <- starting.point.geosse(tree, eps=0)
     ans0 <- c( rep(1.8861312, 3), rep(0, 2), rep(0.1886131, 2) )
     names(ans0) <- rate.names
     checkEquals(ans, ans0, tolerance=tol)

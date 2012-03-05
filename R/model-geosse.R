@@ -209,13 +209,12 @@ stationary.freq.geosse <- function(pars) {
 }
 
 ## from Magallon & Sanderson (2001), rather than a bd fit
-starting.point.geosse <- function(tree, yule=FALSE) {
- if (yule) {
+starting.point.geosse <- function(tree, eps=0.5) {
+ if (eps == 0) {
    s <- (log(Ntip(tree)) - log(2)) / max(branching.times(tree))
    x <- 0
    d <- s/10
  } else {
-   eps <- 0.5
    n <- Ntip(tree)
    r <- ( log( (n/2) * (1 - eps*eps) + 2*eps + (1 - eps)/2 *
           sqrt( n * (n*eps*eps - 8*eps + 2*n*eps + n))) - log(2)
