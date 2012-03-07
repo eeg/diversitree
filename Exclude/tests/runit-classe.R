@@ -205,10 +205,10 @@ test.params <- function()
 
     pars <- seq_len(27)  # for k = 3 states
     names(pars) <- diversitree:::argnames.classe(NULL, 3)
-    parlist <- inflate.pars.classe(pars, 3)
+    parlist <- diversitree:::inflate.pars.classe(pars, 3)
     checkEquals(parlist$lambda[3,1,2], 14, tolerance=tol)
     checkEquals(parlist$mu[2], 20, tolerance=tol)
     checkEquals(parlist$q[1,3], 23, tolerance=tol)
-    checkIdentical(pars, flatten.pars.classe(parlist))
+    checkIdentical(pars, diversitree:::flatten.pars.classe(parlist))
 }
 

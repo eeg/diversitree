@@ -87,7 +87,7 @@ void derivs_classe(int *neq, double *t, double *y, double *ydot,
   /* saves a little time to pre-compute indices outside of do_derivs_classe;
    * but do it outside of here, too? */
   int len_lam_i = n * (n + 1) / 2;
-  int jk_array[len_lam_i][2];
+  int jk_array[500][2]; /* was: int jk_array[len_lam_i][2]; */
   fill_jk_array(jk_array, n);
 
   do_derivs_classe(n, parms_classe, y, ydot, jk_array);
@@ -101,7 +101,7 @@ int derivs_classe_cvode(realtype t, N_Vector y, N_Vector ydot,
   int n = data->neq/2;
 
   int len_lam_i = n * (n + 1) / 2;
-  int jk_array[len_lam_i][2];
+  int jk_array[500][2]; /* was: int jk_array[len_lam_i][2]; */
   fill_jk_array(jk_array, n);
 
   do_derivs_classe(data->neq/2,
@@ -120,7 +120,7 @@ void initial_conditions_classe(int neq, double *vars_l, double *vars_r,
   int i, j, k, m;
 
   int len_lam_i = n * (n + 1) / 2;
-  int jk_array[len_lam_i][2];
+  int jk_array[500][2]; /* was: int jk_array[len_lam_i][2]; */
   fill_jk_array(jk_array, n);
 
   /* E: */

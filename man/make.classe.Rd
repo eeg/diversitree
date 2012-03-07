@@ -24,7 +24,8 @@
     correspond to the tip labels in the phylogenetic tree
     (\code{tree$tip.label}).}
 
-  \item{k}{The number of states.}
+  \item{k}{The number of states.  (The maximum now is 31, but that can
+    easily be increased if necessary.)}
   
   \item{sampling.f}{Vector of length \code{k} where \code{sampling.f[i]}
     is the proportion of species in state \code{i} that are present in

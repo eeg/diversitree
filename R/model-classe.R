@@ -353,6 +353,8 @@ check.pars.classe <- function(pars, k) {
                  npars))
   if ( any(!is.finite(pars)) || any(pars < 0) )
     stop("Parameters must be non-negative and finite")
+  if (k > 31)
+    stop("No more than 31 states allowed.  Increase in classe-eqs.c.")
   TRUE
 }
 
