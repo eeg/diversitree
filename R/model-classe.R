@@ -22,13 +22,13 @@ make.classe <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
   backend <- control$backend
 
   unresolved <- NULL
-  nt.extra <- 10
   cache <- make.cache.musse(tree, states, k, sampling.f, strict)
   
-  if ( backend == "CVODES" )
+  if ( backend == "CVODES" ) {
     all.branches <- make.all.branches.C.classe(cache, control)
-  else
+  } else {
     branches <- make.branches.classe(cache, control)
+  }
 
   initial.conditions <- make.initial.conditions.classe(k)
 
@@ -39,18 +39,18 @@ make.classe <- function(tree, states, k, sampling.f=NULL, strict=TRUE,
     check.pars.classe(pars, k)
     if ( !is.null(root.p) &&  root != ROOT.GIVEN )
       warning("Ignoring specified root state")
-    if ( root == ROOT.EQUI )
-      stop("Equilibrium root freqs not available for ClaSSE")
+
+    ## hack (from bisseness) to avoid needing root.p.classe()
+    if ( root == ROOT.EQUI ) {
+      root <- ROOT.GIVEN
+      root.p <- stationary.freq.classe(pars, k)
+    }
 
     if ( backend == "CVODES" ) {
       ans <- all.branches(f.pars(pars), intermediates)
       lq <- ans[[1]]
       vals <- ans[[2]]
-
-      if ( intermediates ) {
-        ans <- .Call("r_get_vals", ptr, PACKAGE="diversitree")
-        names(ans) <- c("init", "base", "lq")
-      }
+      ans <- ans$intermediates
     } else {
       ans <- all.branches.matrix(f.pars(pars), cache,
                                  initial.conditions, branches)
@@ -106,8 +106,52 @@ argnames.classe <- function(x, k=attr(x, "k"), ...) {
   x
 }
 
-# Note: Might eventually want utilities for converting from/to list-of-arrays
-# parameter specification: flatten.pars.classe() and listify.pars.classe().
+## These two functions are intended to make the classe parameters easier to
+## visualize and populate, since they get unwieldy with more than two states.
+## The speciation rate array is indexed lambda[parent state, daughter1 state,
+## daughter2 state].  The transition matrix is indexed q[from state, to state].
+## Elements that are not parameters get NA: daughter2 > daughter 1, from = to.
+## The parameter list might be a good way to work with constrain(), eventually.
+
+## Input: list containing lambda_ijk array, mu vector, q_ij array, num states
+## Output: parameter vector, ordered as argnames.classe describes
+flatten.pars.classe <- function(parlist) {
+  k <- parlist$nstates
+  kseq <- seq_len(k)
+
+  idx.lam <- cbind( rep(kseq, each=k*(k+1)/2), 
+                    rep(rep(kseq, times=seq(k,1,-1)), k), 
+                    unlist(lapply(kseq, function(i) i:k)) )
+
+  idx.q <- cbind( rep(kseq, each=k-1), 
+                  unlist(lapply(kseq, function(i) (kseq)[-i])) )
+
+  pars <- c(parlist$lambda[idx.lam], parlist$mu, parlist$q[idx.q])
+  names(pars) <- argnames.classe(NULL, k)
+  pars
+}
+
+## Output: list containing lambda_ijk array, mu vector, q_ij array, num states
+## Input: parameter vector, ordered as argnames.classe describes
+inflate.pars.classe <- function(pars, k) {
+  check.pars.classe(pars, k)
+  kseq <- seq_len(k)
+
+  Lam <- array(NA, dim=rep(k, 3))  # 3 = parent + 2 daughters
+  idx <- cbind(rep(kseq, each=k*(k+1)/2), rep(rep(kseq, times=seq(k,1,-1)), k),
+               unlist(lapply(kseq, function(i) i:k)))
+  j <- length(idx[,1])
+  Lam[idx] <- pars[seq(j)]
+
+  Mu <- pars[seq(j+1, j+k)]
+  names(Mu) <- NULL
+
+  Q <- array(NA, dim=rep(k, 2))
+  idx <- cbind(rep(kseq, each=k-1), unlist(lapply(kseq, function(i) kseq[-i])))
+  Q[idx] <- pars[seq(j+k+1, length(pars))]
+
+  list(lambda=Lam, mu=Mu, q=Q, nstates=k)
+}
 
 ## 4: find.mle
 find.mle.classe <- function(func, x.init, method, fail.value=NA, ...) {
@@ -186,6 +230,73 @@ make.all.branches.C.classe <- function(cache, control) {
 
 ## don't see a need for classe.Q()
 
+## like stationary.freq.bisse[ness], but always returns a vector
+stationary.freq.classe <- function(pars, k) {
+  if (k == 2) {
+    g <- (sum(pars[1:3]) - pars[7]) - (sum(pars[4:6]) - pars[8])
+    eps <- sum(pars[1:8]) * 1e-14
+    ss1 <- pars[9]  + 2*pars[3] + pars[2]  # shift from 1
+    ss2 <- pars[10] + 2*pars[4] + pars[5]  # shift from 2
+
+    if ( abs(g) < eps ) {
+      if (ss1 + ss2 == 0) 
+        eqfreq <- 0.5
+      else
+        eqfreq <- ss2/(ss1 + ss2)
+    } else {
+      roots <- quadratic.roots(g, ss2 + ss1 - g, -ss2)
+      eqfreq <- roots[roots >= 0 & roots <= 1]
+      if ( length(eqfreq) > 1 )
+        eqfreq <- NA
+      else
+        eqfreq <- c(eqfreq, 1 - eqfreq)
+    }
+  } else { ## also works for k=2, but much slower
+      eqfreq <- stationary.freq.classe.ev(pars, k)
+  }
+  eqfreq
+}
+
+## like stationary.freq.geosse()
+stationary.freq.classe.ev <- function(pars, k) {
+  nsum <- k*(k+1)/2
+  kseq <- seq_len(k)
+  pars.lam <- pars[seq(1, nsum*k)]
+  pars.mu <- pars[seq(nsum*k+1, (nsum+1)*k)]
+  pars.q <- pars[seq((nsum+1)*k+1, length(pars))]
+
+  ## will be the transition matrix
+  A <- matrix(0, nrow=k, ncol=k)
+
+  ## array indices of lambda's in parameter vector
+  idx.lam <- cbind(rep(kseq, each=nsum), rep(rep(kseq, times=seq(k,1,-1)), k),
+                   unlist(lapply(kseq, function(i) i:k)))
+  ## transpose of matrix indices of q's in parameter vector
+  idx.q <- cbind(unlist(lapply(kseq, function(i) (kseq)[-i])), 
+                 rep(kseq, each=k-1))
+
+  ## take care of off-diagonal elements
+  for (n in seq_len(nsum*k)) {
+    ## add this lambda to A[daughter states, parent state]
+    ## (separate steps in case the daughter states are the same)
+    r <- idx.lam[n,]
+    A[r[2], r[1]] <- A[r[2], r[1]] + pars.lam[n]
+    A[r[3], r[1]] <- A[r[3], r[1]] + pars.lam[n]
+  }
+  A[idx.q] <- A[idx.q] + pars.q
+
+  ## fix the diagonal elements
+  diag(A) <- 0
+  diag(A) <- -colSums(A) + unlist(lapply(kseq, function(i) 
+                 sum(pars.lam[seq((i-1)*nsum+1, i*nsum)]) - pars.mu[i]))
+
+  ## continuous time, so the dominant eigenvalue is the largest one
+  ## return its eigenvector, normalized
+  evA <- eigen(A)
+  i <- which(evA$values == max(evA$values))
+  evA$vectors[,i] / sum(evA$vectors[,i])
+}
+
 ## based on starting.point.geosse()
 starting.point.classe <- function(tree, k, eps=0.5) {
   if (eps == 0) {
@@ -206,12 +317,6 @@ starting.point.classe <- function(tree, k, eps=0.5) {
   p
 }
 
-## NOTE:
-## Functions below are taken from diversitree-branches.R.  Internal
-## modifications were necessary, but the parent functions could likely be
-## generalized by passing some more functions as arguments.  At the moment,
-## though, separate seems better than integrated.
-
 ## modified from diversitree-branches.R: root.xxsse()
 ##   the only difference is lambda
 root.classe <- function(vals, pars, lq, condition.surv, root.p) {
@@ -223,8 +328,7 @@ root.classe <- function(vals, pars, lq, condition.surv, root.p) {
   e.root <- vals[i]
   d.root <- vals[-i]
 
-  if ( condition.surv )
-  {
+  if ( condition.surv ) {
     ## species in state i are subject to all lambda_ijk speciation rates
     nsum <- k*(k+1)/2
     lambda <- colSums(matrix(pars[1:(nsum*k)], nrow=nsum))
@@ -246,6 +350,8 @@ check.pars.classe <- function(pars, k) {
                  npars))
   if ( any(!is.finite(pars)) || any(pars < 0) )
     stop("Parameters must be non-negative and finite")
+  if (k > 31)
+    stop("No more than 31 states allowed.  Increase in classe-eqs.c.")
   TRUE
 }
 

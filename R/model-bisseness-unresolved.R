@@ -13,15 +13,15 @@
 ##          in.
 ##   'm': parameter affecting internal arguments.  Small numbers often
 ##        faster, sometimes slower.  Play around.
-bucexp <- function(nt, la0, la1, mu0, mu1, q01, q10, t, scal=1,
-                   tol=1e-10, m=15) {
-  stopifnot(all(c(la0, la1, mu0, mu1, q01, q10) >= 0))
+nucexp <- function(nt, la0, la1, mu0, mu1, q01, q10, p0c, p0a,
+                   p1c, p1a, t, scal=1, tol=1e-10, m=15) {
+  stopifnot(all(c(la0, la1, mu0, mu1, q01, q10, p0c, p0a, p1c, p1a) >= 0))
   lt <- length(t)
   stopifnot(lt > 0)
   stopifnot(scal >= 1)
   stopifnot(m > 1)
   n <- (nt*(nt+1)/2+1)
-  res <- .Fortran("bucexp",
+  res <- .Fortran("nucexp",
                   nt   = as.integer(nt),
                   la0  = as.numeric(la0),
                   la1  = as.numeric(la1),
@@ -29,6 +29,10 @@ bucexp <- function(nt, la0, la1, mu0, mu1, q01, q10, t, scal=1,
                   mu1  = as.numeric(mu1),
                   q01  = as.numeric(q01),
                   q10  = as.numeric(q10),
+                  p0c  = as.numeric(p0c),
+                  p0a  = as.numeric(p0a),
+                  p1c  = as.numeric(p1c),
+                  p1a  = as.numeric(p1a),
                   t    = as.numeric(t),
                   lt   = as.integer(lt),
                   scal = as.numeric(scal),
@@ -50,8 +54,8 @@ bucexp <- function(nt, la0, la1, mu0, mu1, q01, q10, t, scal=1,
 ## Returns a length(t) x 4 matrix, where the first two columns are the
 ## probabilities of generating the clade, and the second two are the
 ## probabilities of extinction.
-bucexpl <- function(nt, la0, la1, mu0, mu1, q01, q10, t, Nc, nsc, k,
-                    scal=1, tol=1e-10, m=15) {
+nucexpl <- function(nt, la0, la1, mu0, mu1, q01, q10, p0c, p0a,
+                    p1c, p1a, t, Nc, nsc, k, scal=1, tol=1e-10, m=15) {
   tt <- sort(unique(t))
   ti <- as.integer(factor(t))
 
@@ -62,7 +66,7 @@ bucexpl <- function(nt, la0, la1, mu0, mu1, q01, q10, t, Nc, nsc, k,
             all(nsc <= Nc), all(nsc >= 0), all(k <= nsc),
             scal >= 1, m > 1)
 
-  res <- .Fortran("bucexpl",
+  res <- .Fortran("nucexpl",
                   nt   = as.integer(nt),
                   la0  = as.numeric(la0),
                   la1  = as.numeric(la1),
@@ -70,6 +74,10 @@ bucexpl <- function(nt, la0, la1, mu0, mu1, q01, q10, t, Nc, nsc, k,
                   mu1  = as.numeric(mu1),
                   q01  = as.numeric(q01),
                   q10  = as.numeric(q10),
+                  p0c  = as.numeric(p0c),
+                  p0a  = as.numeric(p0a),
+                  p1c  = as.numeric(p1c),
+                  p1a  = as.numeric(p1a),
                   t    = as.numeric(tt),
                   lt   = as.integer(lt),
                   ti   = as.integer(ti),
@@ -89,64 +97,38 @@ bucexpl <- function(nt, la0, la1, mu0, mu1, q01, q10, t, Nc, nsc, k,
   matrix(res$ans, ncol=4)
 }
 
-## Compute the PDF of the hypergeometric distribution, using the same
-## parameters that Wikipedia uses, and I used in the Fortran
-## function.
-hyperg <- function(N, m, n, k) dhyper(k, m, N-m, n)
-
-## The function 'bucexp.n' creates a data.frame with the number of
-## species in state a, b and total for a bucexp state-space absorbing
-## at n species.
-bucexp.n <- function(n) {
-  z <- sapply(0:(n-1), seq, from=0)
-  n1 <- unlist(z)
-  n0 <- unlist(lapply(z, rev))
-  nt <- n0 + n1
-  rbind(data.frame(n0, n1, nt), c(NA, NA, n))
-}
-
-## Pack a nt x nt matrix with probabilities returned by bucexp().
-## Cases where n0 + n1 > nt are given zero probabilities (or change,
-## with the 'default' argument; e.g., default=NA will set them to be
-## NA).
-repack <- function(p, default=0) {
-  n <- (sqrt(8*length(p) - 7) - 1)/2
-  m <- matrix(default, n, n)
-  idx <- bucexp.n(n)
-  m[with(idx[-nrow(idx),]+1, cbind(n0, n1))] <- p[-length(p)]
-  m
-}
-
-## Given two of n0, n1 and nt, calculate the position in the state
-## vector.
-index <- function(n0, n1, n=n0 + n1) {
-  if ( missing(n1) ) n1 <- n - n0
-  if ( missing(n0) ) n0 <- n - n1
-  stopifnot(n0 + n1 == n && all(n0 >= 0) && all(n1 >= 0))
-  n*(n + 1)/2 + 1 + n1
-}
-
 ## Construct the transition matrix.  Again, non-R style, as this was
 ## used as a template for constructing the same in Fortran.
-make.matrix <- function(nt, lambda0, lambda1, mu0, mu1, q01, q10) {
-  ## Diagonals (are linear sums of these: -(n0*r0 + n1*r1)):
-  r0 <- lambda0 + mu0 + q01
-  r1 <- lambda1 + mu1 + q10
+make.matrix.ness <- function(nt, mu.a, mu.b, lambda.a, lambda.b, q.ba,
+                        q.ab, p.ac, p.aa, p.bc, p.ba) {
+  ## Diagonals (are linear sums of these: -(na*pa + nb*pb))
+  ## The chance of no change is unaffected by BiSSEness, which only alters what
+  ## happens at speciation.
+
+  pa <- lambda.a + mu.a + q.ba
+  pb <- lambda.b + mu.b + q.ab
 
   ## A few useful numbers:
+  ## n1 represents the state space size, excluding the absorbing state and the state with nt-1 species
+  ## 2*n1 also represents the total number of non-zero elements in each of the transition and extinction matrices
+  ## nm represents the state space size:  {0,0}, {1,0}, {0,1}, ...{absorbing with nt species}
   n1 <- nt*(nt-1)/2
   nm <- n1 + nt + 1
 
   ## Create some useful vectors
+  ## j1 contains the positions in the vector space that have some species in state a (na>0)
+  ## j1+1 contains the positions in the vector space that have some species in state b (nb>0)
+  ## na contains just the vector of numbers of species in state a (dropping those with na=0)
+  ## nb contains just the vector of numbers of species in state b (dropping those with nb=0)
   j1 <- integer(n1)
-  n0 <- integer(n1)
-  n1 <- integer(n1)
+  na <- integer(n1)
+  nb <- integer(n1)
   k <- 1
   for ( i in 1:(nt-1) ) {
     for ( j in 1:i ) {
       j1[k] <- i + k
-      n0[k] <- i - j + 1
-      n1[k] <- j
+      na[k] <- i - j + 1
+      nb[k] <- j
       k <- k + 1
     }
   }
@@ -154,27 +136,45 @@ make.matrix <- function(nt, lambda0, lambda1, mu0, mu1, q01, q10) {
   ## Character state transitions and extinctions
   m <- matrix(0, nm, nm)
   for ( i in 1:n1 ) {
-    m[j1[i],   i]       <- n0[i]*mu0
-    m[j1[i]+1, i]       <- n1[i]*mu1
-    m[j1[i],   j1[i]+1] <- n0[i]*q01
-    m[j1[i]+1, j1[i]]   <- n1[i]*q10
+    m[j1[i],   i]       <- na[i]*mu.a
+    m[j1[i]+1, i]       <- nb[i]*mu.b
+    m[j1[i],   j1[i]+1] <- na[i]*q.ba
+    m[j1[i]+1, j1[i]]   <- nb[i]*q.ab
   }
 
-  ## Speciation and diagonals:
+  ## Speciation and diagonals (BiSSE):
+##  for ( i in 2:n1 ) {
+##    if ( na[i] > 1 )
+##      m[i, j1[i]]   <- (na[i]-1)*lambda.a
+##    if ( nb[i] > 1 )
+##    m[i, j1[i]+1] <- (nb[i]-1)*lambda.b
+##    m[i,i]        <- - (na[i]-1)*pa - (nb[i]-1)*pb
+##  }
+
+  ## Speciation and diagonals (BiSSEness):
+  ## (Calculations are performed where na[i]-1 represents number of state a species in source.)
   for ( i in 2:n1 ) {
-    if ( n0[i] > 1 )
-      m[i, j1[i]]   <- (n0[i]-1)*lambda0
-    if ( n1[i] > 1 )
-    m[i, j1[i]+1] <- (n1[i]-1)*lambda1
-    m[i,i]        <- - (n0[i]-1)*r0 - (n1[i]-1)*r1
+    if ( na[i] > 1 ) {
+      m[i, j1[i]]   <- (na[i]-1)*lambda.a*(1-p.ac)
+      m[i, j1[i]+1]   <- (na[i]-1)*lambda.a*p.ac*p.aa
+      m[i, j1[i]+2]   <- (na[i]-1)*lambda.a*p.ac*(1-p.aa)
+    }
+    if ( nb[i] > 1 ) {
+      m[i, j1[i]+1] <- m[i, j1[i]+1] + (nb[i]-1)*lambda.b*(1-p.bc)
+      m[i, j1[i]] <- m[i, j1[i]] + (nb[i]-1)*lambda.b*p.bc*p.ba
+##    While the above may be contributed by speciation in state a, the following cannot be.  
+      m[i, j1[i]-1] <- (nb[i]-1)*lambda.b*p.bc*(1-p.ba)
+    }
+    m[i,i]        <- - (na[i]-1)*pa - (nb[i]-1)*pb
   }
 
   ## Speciation in the special final column, diagonals for the last
-  ## class.
+  ## class (unaffected by bisseness, because all movements to last
+  ## class are collapsed, regardless of trait combination).
   k <- nt*(nt-1)/2
   for ( i in 1:nt ) {
-    m[k+i, nm]  <-  (nt-i)*lambda0 + (i-1)*lambda1
-    m[k+i, k+i] <- -(nt-i)*r0      - (i-1)*r1
+    m[k+i, nm]  <-  (nt-i)*lambda.a + (i-1)*lambda.b
+    m[k+i, k+i] <- -(nt-i)*pa       - (i-1)*pb
   }
 
   m
