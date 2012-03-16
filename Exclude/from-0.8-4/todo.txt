@@ -1,0 +1,16 @@
+DESCRIPTION
+NAMESPACE
+R/model-classe.R
+R/model-geosse-split.R
+R/model-geosse.R
+man/make.geosse.Rd
+man/make.geosse.split.Rd
+src/classe-eqs.c
+src/geosse-eqs.c
+
+Needed
+	classe vs bisseness in runit-classe.R and make.classe.Rd
+
+	classe.split (check results against geosse.split)
+	man/make.classe.split.Rd
+	R/model-classe-split.R

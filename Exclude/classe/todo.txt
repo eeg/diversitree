@@ -1,0 +1,137 @@
+Date: Sun, 15 May 2011 15:25:03 -0700
+From: Rich FitzJohn <fitzjohn@zoology.ubc.ca>
+To: Emma Goldberg <eeg@uic.edu>
+Subject: GeoSSE
+----------------------------------------
+
+Hi Emma,
+
+I see you've got the GeoSSE paper out -- congratulations!
+
+I've been getting the code working for this evolution talk going.  In  
+the process (and spurred on by the continual breaking of diversitree  
+by upgrading deSolve) I've been moving diversitree over to a new  
+integration backend (the CVODE solver from the sundials package).   
+It's no faster than deSolve's LSODA, but it is modern C code, which  
+means that I can create a pointer to the data structure and pass that  
+around, which is nice.  The *real* advantage that comes from this is  
+that it is possible to do the entire tree traversal in C too, which  
+gets a speed up of up to about 8x over the current diversitree.
+
+However, this affects you and GeoSSE a little bit.
+
+* The derivative function needed changing slightly (the interface for  
+calling it is a little different).  This is easy and I've made the  
+change.  While I was doing that, I altered a couple of stylistic  
+things to match the naming scheme that has mostly evolved since you  
+initially wrote the GeoSSE code.  Everything that actually computes  
+values, and all of the comments are preserved.  There is some extra  
+guff around types in the new version.  This is unfortunately going to  
+complicate developing outside of diversitree (but it's not impossible  
+- let me know if you're doing any such models and we can chat about  
+the issues at evolution, perhaps).
+
+* To get the fully C version going, the initial condition function  
+also needs writing in C; I translated your R version directly into C.
+
+* To use the different integrator, some changes are obviously needed  
+on the R side.  I've added those too.  You should be able to see that  
+there is a bunch of boilerplate code (too much) compared with the  
+bisse and musse models.  I'll probably end up tidying this up at some  
+point.  Some of the "control" type parameters have changed.  The  
+different integrators are chosen by the "backend" element of the  
+control list:
+   - control(backend="deSolve") # the original integrator
+   - control(backend="cvodes")  # the new CVODES integrator, but still  
+keeping the traversal in R
+   - control(backend="CVODES")  # the new CVODES integrator, with  
+traversal in C
+(it is much more difficult to debug things in C, which is why I am  
+preserving the R all.branches() function).  As of the next released  
+version, deSolve will remain the default, but if the deSolve version  
+is not known to work the much slower "safe" version of the integrator  
+will be used.  Once I'm happy that everything is OK, cvodes or CVODES  
+will be the default. See below for an example with geosse (I get only  
+a 3x improvement for GeoSSE, which is the smallest I've seen across  
+the models)
+
+* The root treatment in BiSSE, etc, has changed slightly when  
+conditioning on survival (you don't do this by default, and as nobody  
+reads manuals anyway, this probably doesn't affect anyone using  
+GeoSSE!).  We should chat about this later, as I've not documented  
+what I did anywhere...
+
+* Finally, Brian Ripley emailed me a while ago to say that the  
+save=FALSE argument to require(), which you used in the data file, has  
+been removed from R, so I had to modify that file to get the package  
+OK on CRAN.
+
+Whew!  Attached is a new diversitree version which contains all these  
+files.  I have my fingers crossed that you've not made a bunch of  
+changes.  If you have any comments, please let me know.  This version  
+is on CRAN, but I think I mucked up and disabled the CVODES code (it's  
+fixed in this version).
+
+Cheers,
+Rich
+
+library(diversitree)
+pars <- c(1.5, 0.5, 1.0, 0.7, 0.7, 2.5, 0.5)
+data("geosse")
+lik1 <- make.geosse(geosse.phy, geosse.phy$tip.state,
+                     control=list(backend="deSolve"))
+lik2 <- make.geosse(geosse.phy, geosse.phy$tip.state,
+                     control=list(backend="cvodes"))
+lik3 <- make.geosse(geosse.phy, geosse.phy$tip.state,
+                     control=list(backend="CVODES"))
+
+names(pars) <- argnames(lik1)
+
+lik1(pars) # -297.6749
+lik2(pars) # -297.675  # close enough...
+lik3(pars) # -297.6749
+
+p <- starting.point.geosse(geosse.phy)
+t1 <- system.time(fit1 <- find.mle(lik1, p, method="subplex")) # 57s
+t2 <- system.time(fit2 <- find.mle(lik2, p, method="subplex")) # 84s
+t3 <- system.time(fit3 <- find.mle(lik3, p, method="subplex")) # 19s
+
+logLik(fit1) # -295.0275
+logLik(fit2) # -295.0275
+logLik(fit3) # -295.0275
+
+
+
+* R/check.R: Simple support for multistate/polymorphic tip
+states.  Slightly improved "almost-integer" checking.
+	check.state() addition -- looks like allowing a matrix for states
+
+* R/model-musse.R: Simple support for multistate/polymorphic tip
+states.
+	mcmc.musse() has some changes to state checking, to enable multistate
+
+* R/diversitree-branches.R: Better treatment of root when one
+lambda value is zero (*Will change calculations*)
+	in root.xxsse(): d.root <- d.root / sum(root.p * lambda * (1 - e.root)^2)
+
+
+
+
+
+mail from Rich, Jan 2010:
+
+I have the full punctuational change with multi-state characters done, as part of the HIV project.  Though with no phyletic character change along branches in that case.  Not sure when it will hit the package, but it will be at least after the paper is submitted.  I think getting the punctuational change done wasn't too bad; the initial.conditions function looks like this:
+
+initial.conditions.bdp2 <- function(init, pars, t, is.root=FALSE) {
+  k <- ncol(init)/2
+  e <- init[1,1:k]
+  d <- init[,(k+1):(2*k)]
+  dd <- outer(d[1,], d[2,])
+  ll <- matrix(pars[(2*k+1):((k+1)*(k+1)-1)], k, k)
+  d <- colSums(ll * (dd + t(dd)))
+  c(e, d)
+}
+
+(for k states, the first k columns of init are Es, the second k are Ds; this computes the outer product of the Ds.  The matrix
+  ll <- matrix(pars[(2*k+1):((k+1)*(k+1)-1)], k, k)
+are the k*k possible speciation induced transitions.)

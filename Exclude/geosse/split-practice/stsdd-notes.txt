@@ -1,0 +1,14 @@
+background tree 0:
+	equal rates for the two regions
+	SimTreeSDD simpar.dat
+
+foreground tree 1:
+	more rapid speciation in A
+	SimTreeSDD simpar.dat birth0=1.5, birth1=0.5 end_t=3
+
+foreground tree 2:
+	more rapid dispersal from B to A
+	SimTreeSDD simpar.dat alpha=0.5 beta=1.5 end_t=3
+
+So 1 and 2 should have more A species than 0, but for different reasons.
+This will be too many parameters to estimate, so only let sA, sB, dA, dB differ between clades.
