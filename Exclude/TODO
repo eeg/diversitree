@@ -16,3 +16,6 @@ classe
 	R/model-classe-split.R
 
 	classe.multistate (model-classe.R, in simulate-classe.R, maybe check.R)
+
+all models
+	? argument to stationary.freq.*sse() to return something more informative than NA when there are multiple solutions (as happens under irreversibility)
