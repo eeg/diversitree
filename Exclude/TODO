@@ -1,0 +1,18 @@
+consolidate test files
+consolidate vignettes, documentation
+
+classe
+	vignette
+
+	simulate-classe.R
+		looks good; could clean up work in test-simulator/
+	simulate-geosse.R
+	write a tree.classe() wrapper for simulate-geosse.R
+
+	classe vs bisseness (in runit-classe.R and make.classe.Rd)
+
+	classe.split (check results against geosse.split)
+	man/make.classe.split.Rd
+	R/model-classe-split.R
+
+	classe.multistate (model-classe.R, in simulate-classe.R, maybe check.R)
