@@ -1,0 +1,24 @@
+trait_type = region
+
+birth0  = 1.5
+birth1  = 0.5
+birthAB = 1.0
+death0  = 0.7
+death1  = 0.6
+alpha   = 1.4
+beta    = 0.9
+
+end_t   = 4.5  # time for which to run the tree
+root_state = 0
+
+min_tips = 5
+min_two_states = 0
+num_trees = 1000
+num_start = 1
+file_prefix = 7-geosse/tree
+
+verbosity = 1
+write_newick = 0
+write_nexus = 0
+write_bmstrait = 0
+write_ttn = 1
