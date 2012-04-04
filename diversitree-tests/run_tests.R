@@ -1,7 +1,7 @@
 # usage: R --slave < run_tests.R
 
 library(RUnit)
-library(diversitree)
+library(diversitreeEEG)
 
 # Defaults to requiring "test." in function names and "runit" in file names
 # The full set of tests is run through zzz.R.  This file is just handy for

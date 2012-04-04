@@ -1,0 +1,43 @@
+When cherry-picking changes for pull-intended branches, watch out for diversitree -> diversitreeEEG.  Especially in these files:
+	diversitree/DESCRIPTION
+	diversitree/NAMESPACE
+	diversitree-tests/run_tests.R
+	diversitree-tests/runit-classe.R
+
+doc/
+	update geosse section of tutorial
+		simulator
+		combine
+	create classe section for tutorial
+	break these sections out from diversitree-tutorial.Rnw?  would speed up test compilations
+
+classe
+	simulator
+		send classe-sim branch to Rich
+		it's slow -- eventually port to C, but now the C version of the bisse simulator is not even functional
+
+	diversitree-tests/runit-classe.R
+		compare with bisseness
+		add something for simulator
+
+	diversitree/man/make.classe.Rd
+		in \examples, also show relation to bisseness
+
+	classe-split
+		man/make.classe.split.Rd
+		R/model-classe-split.R
+		will require change to param structure passed to stationary.freqs?
+		check against musse, bisseness, geosse
+
+	classe-multistate
+		see equivalent for musse
+
+geosse
+	write a tree.classe() wrapper for simulate-geosse.R
+
+all models
+	? argument to stationary.freq.*sse() to return something more informative than NA when there are multiple solutions (as happens under irreversibility)
+
+consolidate testing work
+	old Exclude/
+	maybe not even under github; or could keep on this eeg-dev branch if not huge (put simulated trees elsewhere?)

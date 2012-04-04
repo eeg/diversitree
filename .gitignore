@@ -69,3 +69,9 @@ diversitree/src/sundials_sptfqmr.c
 
 ## I will often have a checking file here:
 diversitree.Rcheck
+
+## from Emma
+diversitree/src/*.o
+*.swp
+diversitree/config.log
+diversitree/src/diversitreeEEG.so

@@ -1,4 +1,4 @@
-library(diversitree)
+library(diversitreeEEG)
 library(RUnit)
 
 tol <- 1e-6
