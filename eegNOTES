@@ -15,13 +15,17 @@ classe
 	simulator
 		send classe-sim branch to Rich
 		it's slow -- eventually port to C, but now the C version of the bisse simulator is not even functional
+			compare running times with musse simulator, before complaining
 
 	diversitree-tests/runit-classe.R
 		compare with bisseness
-		add something for simulator
 
 	diversitree/man/make.classe.Rd
 		in \examples, also show relation to bisseness
+
+	helper functions to deal with many states
+		arranging parameters
+		constraining models
 
 	classe-split
 		man/make.classe.split.Rd
