@@ -23,16 +23,16 @@ make.all.branches.C <- function(cache, control) {
   ic  <- getNativeSymbolInfo(ic.name,  PACKAGE=dll)$address
 
   ptr <- .Call("r_make_dt_obj", cache.C, neq, np, rhs, ic,
-               rtol, atol, eps, PACKAGE="diversitree")
+               rtol, atol, eps, PACKAGE="diversitreeEEG")
 
   function(pars, intermediates=FALSE, preset=NULL) {
     if ( !is.null(preset) )
       stop("Don't know how to deal with preset values yet")
-    res <- .Call("r_all_branches", ptr, pars, PACKAGE="diversitree")
+    res <- .Call("r_all_branches", ptr, pars, PACKAGE="diversitreeEEG")
     names(res) <- c("lq", "vals")
     if ( intermediates ) {
       vals <- res$vals
-      res <- .Call("r_get_vals", ptr, PACKAGE="diversitree")
+      res <- .Call("r_get_vals", ptr, PACKAGE="diversitreeEEG")
       names(res) <- c("init", "base", "lq")
       res$vals <- vals
     }

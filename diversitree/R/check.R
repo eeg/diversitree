@@ -238,7 +238,7 @@ check.info.ode <- function(info, control=NULL) {
   info$np    <- check.integer(check.scalar(info$np))
   info$idx.d <- check.integer(info$idx.d)
   if ( is.null(info$dll) )
-    info$dll <- "diversitree"
+    info$dll <- "diversitreeEEG"
   else if ( !(is.character(info$dll) && length(info$dll)) == 1 )
     stop("dll must be a single string")
   dll <- info$dll

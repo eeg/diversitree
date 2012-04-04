@@ -56,7 +56,7 @@ cvodes.sens <- function(n.var, n.par, derivs, sens1, rtol, atol,
   ## New below here:
   sens1 <- getNativeSymbolInfo(sens1, PACKAGE=package)$address
   ptr <- .Call("r_make_cvodes_fwd", n.var, n.par, derivs, sens1,
-               rtol, atol, PACKAGE="diversitree")
+               rtol, atol, PACKAGE="diversitreeEEG")
   n.sens <- n.var * n.par
 
   function(pars, vars, vars.sens, times, sens=TRUE) {
@@ -71,16 +71,16 @@ cvodes.sens <- function(n.var, n.par, derivs, sens1, rtol, atol,
       stop("Incorrect sens length")
     storage.mode(pars) <- storage.mode(vars) <- storage.mode(times) <-
       storage.mode(vars.sens) <- "numeric"
-    .Call("r_cvodes_set_pars", ptr, pars, PACKAGE="diversitree")
+    .Call("r_cvodes_set_pars", ptr, pars, PACKAGE="diversitreeEEG")
     ## if (sens) ... else .Call("r_cvodes_run", ptr, vars, times)# ?
     .Call("r_cvodes_fwd_run", ptr, vars, vars.sens, times,
-          PACKAGE="diversitree")
+          PACKAGE="diversitreeEEG")
   }
 }
 
 ## See check.fftC()
 check.cvodes <- function(error=TRUE) {
-  ok <- is.loaded("r_make_cvodes", "diversitree")
+  ok <- is.loaded("r_make_cvodes", "diversitreeEEG")
   if ( error && !ok )
     stop("diversitree built without CVODES support")
   ok
@@ -88,7 +88,7 @@ check.cvodes <- function(error=TRUE) {
 
 cvodes.headers <- function(to.Makevars=FALSE, ...) {
   str <- sprintf("PKG_CPPFLAGS=-I%s/include",
-                 path.package("diversitree"))
+                 path.package("diversitreeEEG"))
   if ( to.Makevars ) {
     writeLines(str, "Makevars", ...)
     invisible(str)
