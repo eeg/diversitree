@@ -3,7 +3,9 @@ make.ode.deSolve <- function(info, control) {
   model  <- info$name.ode
   np     <- info$np  
   ny     <- info$ny
-  dll    <- info$dll  
+  dll    <- info$dll
+  banded <- info$banded
+
   safe   <- control$safe
   unsafe <- control$unsafe
   atol   <- rtol <- as.numeric(control$tol)
@@ -39,6 +41,8 @@ make.ode.deSolve <- function(info, control) {
     initfunc  <- getNativeSymbolInfo(initfunc, PACKAGE=dll)$address
     derivs    <- getNativeSymbolInfo(derivs,   PACKAGE=dll)$address
     jacfunc <- NULL
+    ## Magic numbers from deSolve:lsoda.R
+    jactype <- if ( banded ) 5L else 2L
 
     maxordn <- 12
     maxords <- 5
@@ -70,6 +74,12 @@ make.ode.deSolve <- function(info, control) {
         stop("Need >= 2 times")
       storage.mode(vars) <- storage.mode(times) <- "numeric"
 
+      ## Strictly only need to do this at the likelihood function, but
+      ## that complicates things.  This is safer, anyway.  The cost is
+      ## on the order of 0.01s / 10000 evaluations, so even for large
+      ## trees this is trivial.
+      check.ptr(derivs)
+
       ret <- 
         .Call("call_lsoda", vars, times, derivs, pars,
               rtol, atol,
@@ -82,7 +92,7 @@ make.ode.deSolve <- function(info, control) {
               INTONE,    # itask
               rwork,
               iwork,
-              INTTWO,    # jT: Jacobian type (fullint)
+              jactype,   # Jacobian type (2=full, 5=banded [1 up and down])
               INTZERO,   # nOut (no global variables)
               lrw,       # size of workspace (real)
               liw,       # size of workspace (int)

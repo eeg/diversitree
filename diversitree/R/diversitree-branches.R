@@ -220,12 +220,7 @@ make.cache <- function(tree) {
 
   is.tip <- idx <= n.tip
 
-  children <- lapply(idx[!is.tip], function(x) edge[edge[,1] == x,2])
-  ## Technically, this is already checked by check.tree, but I'm happy
-  ## leaving it in.
-  if ( !all(sapply(children, length)==2) )
-    stop("Multifircations/unbranched nodes in tree - best get rid of them")
-  children <- rbind(matrix(NA, n.tip, 2), t(matrix(unlist(children), 2)))
+  children <- get.children(edge, n.tip)
 
   parent <- edge[match(idx, edge[,2]),1]
 
@@ -317,8 +312,7 @@ root.p.calc <- function(vals, pars, root, root.p=NULL,
       stop("Invalid length for root.p")
     p <- root.p
   } else if ( root == ROOT.ALL ) {
-    ## This hasn't actually worked for a little while...
-    .Deprecated("root=ROOT.ALL")
+    p <- rep(1, k)
   } else {
     stop("Invalid root mode")
   }
@@ -423,12 +417,13 @@ dt.tips.grouped <- function(y, y.i, cache) {
   types <- sort(unique(y.i))
   res <- vector("list", length(types))
 
-  for ( type in types ) {
+  for ( i in seq_along(types) ) {
+    type <- types[i]
     j <- which(y.i == type)
-    i <- order(t[j])
-    res[[type]] <- list(y=y[[type]], y.i=type,
-                        target=tips[j][i], t=t[j][i],
-                        type="GROUPED")
+    ord <- order(t[j])
+    res[[i]] <- list(y=y[[type]], y.i=i,
+                     target=tips[j][ord], t=t[j][ord],
+                     type="GROUPED")
   }
   res
 }

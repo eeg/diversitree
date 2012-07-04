@@ -1,5 +1,6 @@
 \name{make.musse.td}
 \alias{make.musse.t}
+\alias{make.musse.t.old}
 \alias{make.musse.td}
 
 \title{Multiple State Speciation and Extinction Model: Time Dependent
@@ -12,12 +13,17 @@
 \usage{
 make.musse.td(tree, states, k, n.epoch, sampling.f=NULL,
               strict=TRUE, control=list())
+
 make.musse.t(tree, states, k, functions, sampling.f=NULL,
-              strict=TRUE, control=list())
+             strict=TRUE, control=list(), spline.data=NULL)
+
+make.musse.t.old(tree, states, k, functions, sampling.f=NULL,
+                 strict=TRUE, control=list())
 }
 
 \arguments{
-  \item{tree}{A phylogenetic tree, in \code{ape} \dQuote{phylo} format.}
+  \item{tree}{An ultrametric bifurcating phylogenetic tree, in
+    \code{ape} \dQuote{phylo} format.}
 
   \item{states}{A vector of character states, each of which must be an
     integer between 1 and \code{k}.  This vector must have names that
@@ -49,6 +55,9 @@ make.musse.t(tree, states, k, functions, sampling.f=NULL,
 
   \item{control}{List of control parameters for the ODE solver.  See
     details in \code{\link{make.bisse}}.}
+
+  \item{spline.data}{List of data for spline-based time functions.  See
+    details}.
 }
 
 \details{

@@ -196,3 +196,70 @@ constrain.i <- function(f, p, i.free) {
   attr(g, "func") <- f
   g
 }
+
+## Take a function 'trans' that converts from one parameter vector to
+## another and make a constrained version of a likelihood function
+## 'lik' that basically evalulates
+##   lik(trans(pars))
+## 'argnames' must contain the names of the parameters of the
+## constrained function.
+do.constrain <- function(lik, trans, argnames) {
+  if ( inherits(lik, "constrained") )
+    stop("Cannot use do.constrain() with a constrained function")
+  
+  ret <- function(pars, ..., pars.only=FALSE) {
+    if ( pars.only )
+      trans(pars)
+    else
+      lik(trans(pars), ...)
+  }
+
+  class(ret) <- c("constrained", class(lik))
+  attr(ret, "argnames") <- argnames
+  attr(ret, "func") <- lik
+  ret
+}
+
+constrain.i2 <- function(f, p, i.free) {
+  npar <- length(i.free)
+  argnames <- try(argnames(f), silent=TRUE)
+  if ( inherits(argnames, "try-error") ) {
+    argnames.constrained <- argnames <- NULL
+  } else {
+    argnames.constrained <- argnames[i.free]
+  
+    if ( length(p) != length(argnames) )
+      stop(sprintf("Incorrect parameter length: expected %d, got %d",
+                   length(argnames), length(p)))
+    pars.out <- p
+  }
+
+  trans <- function(pars) {
+    if ( length(pars) != npar )
+      stop(sprintf("Incorrect parameter length: expected %d, got %d",
+                   npar, length(pars)))
+    pars.out[i.free] <- pars
+    pars.out
+  }
+
+  ret <- do.constrain(f, trans, argnames[i.free])
+  ## class(ret) <- c("constrained.i", class(ret))
+  ret
+}
+
+## This is a nice idea, but some AI around base parameters would be
+## nice.  In particular if there is some pattern '(X).(Y)' where X is
+## unique within p?
+expand.parameters <- function(p, lik.new, repl=0,
+                              target=argnames(lik.new)) {
+  if ( !all(names(p) %in% target) )
+    stop("Not all parameters in 'p' are present in lik.new()")
+  p.new <- p[target]
+  names(p.new) <- target
+  i <- setdiff(target, names(p.new))
+  if ( length(repl) > 1 )
+    if ( length(i) != length(repl) )
+      stop("Wrong number of replacement parameters")
+  p.new[setdiff(target, names(p))] <- repl
+  p.new
+}

@@ -118,8 +118,8 @@ test.split <- function()
 test.sim <- function()
 {
     pars.g <- pars0
-    names(pars.g) <- diversitreeEEG:::default.argnames.geosse()
-    pars.c <- diversitreeEEG:::pars.ge.to.cl(pars.g)
+    names(pars.g) <- diversitree:::default.argnames.geosse()
+    pars.c <- diversitree:::pars.ge.to.cl(pars.g)
 
     set.seed(1)
     phy <- trees(pars.g, type="geosse", n=2, max.t=4, x0=0)

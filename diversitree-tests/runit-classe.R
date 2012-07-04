@@ -232,3 +232,17 @@ test.sim <- function()
     phy <- tree.classe(pars2.classe, max.t=3)
     checkEquals(as.numeric(table(phy$tip.state)), c(19, 39, 17))
 }
+
+# simulator
+test.sim <- function()
+{
+    set.seed(1)
+    phy <- trees(pars3.classe, type="classe", n=2, max.t=1)
+    checkEquals(lapply(phy, Ntip), list(109, 8))
+    lnL <- make.classe(phy[[1]], phy[[1]]$tip.state, 2)
+    checkEquals(lnL(pars3.classe), -7.294721, tolerance=tol)
+
+    set.seed(3)
+    phy <- tree.classe(pars2.classe, max.t=3)
+    checkEquals(as.numeric(table(phy$tip.state)), c(19, 39, 17))
+}

@@ -1,6 +1,7 @@
 \name{make.mkn}
 \alias{make.mkn}
 \alias{make.mk2}
+\alias{make.mkn.meristic}
 
 \title{Mk2 and Mk-n Models of character evolution}
 
@@ -18,10 +19,13 @@
 \usage{
 make.mk2(tree, states, strict=TRUE, control=list())
 make.mkn(tree, states, k, strict=TRUE, control=list())
+make.mkn.meristic(tree, states, k, control=list())
 }
 
 \arguments{
-  \item{tree}{A phylogenetic tree, in \code{ape} \dQuote{phylo} format.}
+  % TODO: Drop requirements.
+  \item{tree}{An ultrametric bifurcating phylogenetic tree, in
+    \code{ape} \dQuote{phylo} format.}
   
   \item{states}{A vector of character states, each of which must be 0 or
     1 for \code{make.mk2} or 1 to \code{k} for \code{make.mkn}.}

@@ -81,8 +81,10 @@ make.cache.mkn <- function(tree, states, k, strict, control) {
   else
     cache$info <- make.info.mkn(k, tree)
   cache$states  <- states
-  if ( method == "ode" )
+  if ( method == "ode" ) {
     cache$y <- initial.tip.mkn.ode(cache)
+    cache$info$name.ode <- "mknode"
+  }
 
   cache
 }
@@ -106,7 +108,10 @@ rootfunc.mkn <- function(res, pars, root, root.p, intermediates) {
 
   root.p <- root.p.calc(d.root, pars, root, root.p,
                         stationary.freq.mkn)
-  loglik <- log(sum(root.p * d.root)) + sum(lq)
+  if ( root == ROOT.ALL )
+    loglik <- log(d.root) + sum(lq)
+  else
+    loglik <- log(sum(root.p * d.root)) + sum(lq)
 
   if ( intermediates ) {
     res$root.p <- root.p
@@ -118,10 +123,14 @@ rootfunc.mkn <- function(res, pars, root, root.p, intermediates) {
 }
 
 make.all.branches.mkn <- function(cache, control) {
-  if ( control$method == "ode" )
-    make.all.branches.dtlik(cache, control, initial.conditions.mkn)
-  else
+  if ( control$method == "ode" ) {
+    if ( !is.null(control$backend) && control$backend == "expokit" )
+      make.all.branches.mkn.expokit(cache, control)
+    else
+      make.all.branches.dtlik(cache, control, initial.conditions.mkn)
+  } else {
     make.all.branches.mkn.exp(cache, control)
+  }
 }
 
 ######################################################################

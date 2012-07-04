@@ -82,6 +82,10 @@ check.states <- function(tree, states, allow.unnamed=FALSE,
   ## TODO: When multistate characters are present, this may fail even
   ## for cases where it should not.
   if ( !is.null(strict.vals) ) {
+    if ( isTRUE(all.equal(strict.vals, 0:1)) )
+      if ( is.logical(states) )
+        states[] <- as.integer(states)
+    
     if ( strict ) {
       if ( !isTRUE(all.equal(sort(strict.vals),
                              sort(unique(na.omit(states))))) )
@@ -178,6 +182,8 @@ check.integer <- function(x) {
   if ( is.null(x) )
     stop("NULL argument for ", deparse(substitute(x)))
   nna <- !is.na(x)
+  if ( length(x) > 0 && !any(nna) )
+    stop("No non-NA values for ", deparse(substitute(x)))
   if ( length(x) && max(abs(x[nna] - round(x[nna]))) > 1e-8 )
     stop("Non-integer argument for ", deparse(substitute(x)))
   storage.mode(x) <- "integer"
@@ -237,11 +243,17 @@ check.info.ode <- function(info, control=NULL) {
   info$ny    <- check.integer(check.scalar(info$ny))
   info$np    <- check.integer(check.scalar(info$np))
   info$idx.d <- check.integer(info$idx.d)
+
   if ( is.null(info$dll) )
     info$dll <- "diversitreeEEG"
   else if ( !(is.character(info$dll) && length(info$dll)) == 1 )
     stop("dll must be a single string")
   dll <- info$dll
+
+  if ( is.null(info$banded) )
+    info$banded <- FALSE
+  else if ( length(info$banded) != 1 || !is.logical(info$banded) )
+    stop("Invalid value for banded")
 
   if ( !is.null(control) ) {
     backend <- control$backend
@@ -257,22 +269,10 @@ check.info.ode <- function(info, control=NULL) {
       check.loaded.symbol(sprintf("initial_conditions_%s", model), dll)
     }
   }
+
   
   info
 }
-
-check.control.continuous <- function(control) {
-  defaults <- list(method="vcv")
-  control <- modifyList(defaults, control)
-  if ( length(control$method) != 1 )
-    stop("control$method must be a scalar")
-  methods <- c("vcv", "direct")
-  if ( !(control$method %in% methods) )
-    stop(sprintf("control$method must be in %s",
-                 paste(methods, collapse=", ")))
-  control
-}
-
 
 ## For almost all models, there there must be a certain number of
 ## finite non-negative parameters.
@@ -294,3 +294,7 @@ check.nonnegative <- function(x, msg=NULL) {
     stop(msg)
   x
 }
+
+## Check that a pointer is not NULL.
+check.ptr <- function(ptr)
+  .Call("check_ptr_not_null", ptr)
