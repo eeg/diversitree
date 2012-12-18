@@ -22,6 +22,7 @@ classe
 
 	diversitree/man/make.classe.Rd
 		in \examples, also show relation to bisseness
+		in \examples, touch up pars, pars.g
 
 	helper functions to deal with many states
 		arranging parameters
