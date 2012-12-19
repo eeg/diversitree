@@ -36,6 +36,7 @@ mcmc.default <- function(lik, x.init, nsteps, w, prior=NULL,
     save.fun <- switch(save.type,
                        rds=saveRDS,
                        csv=function(x) write.csv(x, row.names=FALSE))
+    save.file.bak <- paste(save.file, ".bak", sep="")
   }
 
   n.previous <- if ( is.null(previous) ) 0 else nrow(previous)
@@ -62,10 +63,12 @@ mcmc.default <- function(lik, x.init, nsteps, w, prior=NULL,
     hist.pars <- matrix(NA, ncol=npar, nrow=nsteps)
     hist.prob <- rep(NA, nsteps)
   }
-  
+
   if ( is.null(names(x.init)) )
     try(colnames(hist.pars) <- names(x.init) <- argnames(lik),
         silent=TRUE)
+  else
+    colnames(hist.pars) <- names(x.init)
   
   if ( is.null(prior) )
     posterior <- protect(function(x) lik(x, ...),
@@ -113,6 +116,10 @@ mcmc.default <- function(lik, x.init, nsteps, w, prior=NULL,
                     y.init))
       if ( we.should.save() ) {
         j <- seq_len(i)
+        ## Back up the old version to avoid IO errors if the system
+        ## fails while saving.
+        if ( file.exists(save.file) )
+          ok <- file.rename(save.file, save.file.bak)
         ok <- try(save.fun(clean.hist(hist.pars[j,], hist.prob[j]),
                            save.file))
         if ( inherits(ok, "try-error") )
@@ -135,6 +142,10 @@ mcmc.default <- function(lik, x.init, nsteps, w, prior=NULL,
   }
 
   samples <- tryCatch(mcmc.loop(), interrupt=mcmc.recover)
+
+  if ( save.every > 0 || !is.null(save.every.dt) )
+    if ( nrow(samples) == nsteps && file.exists(save.file.bak) )
+      file.remove(save.file.bak)
 
   samples
 }
@@ -196,7 +207,10 @@ make.prior.uniform <- function(lower, upper, log=TRUE) {
   function(x) {
     ret <- rep(p.in, length.out=length(x))
     ret[x < lower | x > upper] <- p.out
-    ret
+    if ( log )
+      sum(ret)
+    else
+      prod(ret)
   }
 }
 

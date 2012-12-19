@@ -88,3 +88,21 @@ diversitree.Rcheck
 
 ## Development stuff
 bounded
+
+pub/bm/bm-timing.pdf
+pub/bm/timings*Rdata
+
+pub/simulations/musse-multitrait-ci.pdf
+pub/simulations/musse-multitrait-power.pdf
+pub/simulations/output
+pub/simulations/trees
+
+pub/example/cache
+pub/example/primates.tex
+pub/example/primates-incl.tex
+pub/example/primates.R
+pub/example/primates.tex
+pub/example/primates.pdf
+
+pub/diversitree-suppl.pdf
+pub/diversitree.pdf
