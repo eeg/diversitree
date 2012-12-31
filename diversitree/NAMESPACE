@@ -16,6 +16,7 @@ export(make.geosse)
 export(make.geosse.split)
 export(make.mk2)
 export(make.mkn)
+export(make.dec2)
 ## export(make.mkn.deriv) # not working right now
 export(make.mkn.multitrait)
 export(make.musse)
