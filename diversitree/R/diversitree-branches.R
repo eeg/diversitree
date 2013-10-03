@@ -183,7 +183,7 @@ all.branches.list <- function(pars, cache, initial.conditions,
     for ( i in seq_along(tip.t) ) {
       idx <- tip.target[i]
       ans <- branches(tip.y[[i]], tip.t[i], pars, 0, idx)
-      lq[idx] <- ans[1]
+      lq[idx] <- ans[[1]]
       branch.base[[idx]] <- ans[-1]
     }
   }
@@ -191,11 +191,13 @@ all.branches.list <- function(pars, cache, initial.conditions,
   for ( i in order ) {
     y.in <- initial.conditions(branch.base[children[i,]], pars,
                                depth[i], i)
-    if ( !all(is.finite(y.in)) )
+    ## TODO: This is temporary to acomodate BBM.  Will change
+    ## shortly.
+    if ( !is.list(y.in) && !all(is.finite(y.in)) )
       stop("Bad initial conditions: calculation failure along branches?")
     branch.init[[i]] <- y.in
     ans <- branches(y.in, len[i], pars, depth[i], i)
-    lq[i] <- ans[1]
+    lq[i] <- ans[[1]]
     branch.base[[i]] <- ans[-1]
   }
 
@@ -354,14 +356,14 @@ make.branches.comp <- function(branches, comp.idx, eps=0) {
 }
 
 make.ode <- function(info, control) {
+  control <- check.control.ode(control)
+  info <- check.info.ode(info, control)
   backend  <- control$backend
-  if ( is.function(info$derivs) )
-    ode <- make.ode.R(info, control)
+  if ( backend == "gslode" )
+    ode <- make.ode.gslode(info, control)
   else if ( backend == "deSolve" )
     ode <- make.ode.deSolve(info, control)
-  else if ( backend == "cvodes" )
-    ode <- make.ode.cvodes(info, control)
-  else
+  else # should have been prevented by now
     stop("Invalid backend", backend)
   ode
 }
@@ -378,15 +380,10 @@ make.branches.dtlik <- function(info, control) {
 
 make.all.branches.dtlik <- function(cache, control,
                                     initial.conditions) {
-  control <- check.control.ode(control)
-  if ( control$backend == "CVODES" ) {
-    make.all.branches.C(cache, control)
-  } else { # deSolve and cvodes:
-    branches <- make.branches.dtlik(cache$info, control)
-    function(pars, intermediates, preset=NULL)
-      all.branches.matrix(pars, cache, initial.conditions,
-                          branches, preset)
-  }
+  branches <- make.branches.dtlik(cache$info, control)
+  function(pars, intermediates, preset=NULL)
+    all.branches.matrix(pars, cache, initial.conditions,
+                        branches, preset)
 }
 
 ## Utility functions for organising initial conditions.
