@@ -61,6 +61,10 @@ trait.plot(tree, dat, cols, lab=names(cols), str=NULL,
   \item{quiet}{When TRUE (FALSE by default), this suppresses the warning
     caused by \code{check=TRUE}.}
 
+  \item{label.offset}{An extra amount of space (beyond that needed for
+    the trait symbols), passed through like \code{ape}'s
+    \code{plot.phylo}.}
+
   \item{...}{Additional arguments passed through to phylogeny plotting
     code (similar to \code{ape}'s \code{plot.phylo}).}
 }

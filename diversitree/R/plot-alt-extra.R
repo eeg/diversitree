@@ -6,7 +6,7 @@
 trait.plot <- function(tree, dat, cols, lab=names(cols), str=NULL, class=NULL,
                        type="f", w=1/50, legend=length(cols) > 1, cex.lab=.5,
                        font.lab=3, cex.legend=.75, margin=1/4, check=TRUE,
-                       quiet=FALSE, ...) {
+                       quiet=FALSE, label.offset=0, ...) {
   if ( !(type %in% c("f", "p")) )
     stop("Only types 'f'an and 'p'hylogram are available")
   if ( !is.null(class) && length(class) != length(tree$tip.label) )
@@ -44,10 +44,10 @@ trait.plot <- function(tree, dat, cols, lab=names(cols), str=NULL, class=NULL,
   w <- w * t
   if ( is.null(class) ) {
     plt <- plot2.phylo(tree, type=type, show.tip.label=TRUE,
-                       label.offset=(n+2)*w, cex=cex.lab, ...)
+                       label.offset=(n+2)*w+label.offset, cex=cex.lab, ...)
   } else {
     plt <- plot2.phylo(tree, type=type, show.tip.label=FALSE,
-                       label.offset=t*margin, ...)
+                       label.offset=t*margin+label.offset, ...)
     group.label.tip(plt, class, "black", "black", lwd=1.5,
                     offset.bar=w*(n+2), offset.lab=w*(n+3),
                     cex=cex.lab, font=font.lab,
@@ -197,4 +197,18 @@ group.label.tip.rad <- function(obj, ...) {
     stop("Invalid plot object")
   .Deprecated("group.label.tip")
   group.label.tip(obj, ...)
+}
+
+# Identical to the ape function, but with label.offset.
+tiplabels <- function (text, tip, adj = c(0.5, 0.5), frame = "rect", pch = NULL, 
+  thermo = NULL, pie = NULL, piecol = NULL, col = "black", 
+  bg = "yellow", horiz = FALSE, width = NULL, height = NULL, 
+  label.offset = 0, ...) {
+  lastPP <- get("last_plot.phylo", envir = .PlotPhyloEnv)
+  if (missing(tip)) 
+    tip <- 1:lastPP$Ntip
+  XX <- lastPP$xx[tip] + label.offset
+  YY <- lastPP$yy[tip]
+  BOTHlabels(text, tip, XX, YY, adj, frame, pch, thermo, pie, 
+    piecol, col, bg, horiz, width, height, ...)
 }
