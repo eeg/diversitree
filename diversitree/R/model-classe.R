@@ -117,13 +117,13 @@ make.initial.conditions.classe <- function(n) {
       d[i] <- sum(pars[lam.idx[i,]] * DM.DN) # slower with apply
 
     ## a touch slower but cleaner:
-    ##   idxlam = seq_len(n*n*(n+1)/2)
-    ##     d = colSums(matrix(pars[idxlam], ncol=n) * DM.DN)
+    ##   idxlam <- seq_len(n*n*(n+1)/2)
+    ##   d <- colSums(matrix(pars[idxlam], ncol=n) * DM.DN)
     ## or slightly better (but still not faster than for):
-    ##   lamseq = seq_len(n*n*(n+1)/2)
-    ##   lam.mat = matrix(lamseq, ncol=n)
-    ##     lam.mat[lamseq] = pars[lamseq]
-    ##     d = colSums(lam.mat * DM.DN)
+    ##   lamseq <- seq_len(n*n*(n+1)/2)
+    ##   lam.mat <- matrix(lamseq, ncol=n)
+    ##   lam.mat[lamseq] <- pars[lamseq]
+    ##   d <- colSums(lam.mat * DM.DN)
 
     c(e, d)
   }
