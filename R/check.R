@@ -45,7 +45,7 @@ check.states <- function(tree, states, allow.unnamed=FALSE,
     n <- rowSums(states > 0)
     if ( any(n == 0) )
       stop(sprintf("No state found for taxa: %s",
-                   paste(names(tmp)[n == 0], collapse=", ")))
+                   paste(rownames(states)[n == 0], collapse=", ")))
     if (any(rowSums(states) == 0))
         multicheck <- FALSE
 
