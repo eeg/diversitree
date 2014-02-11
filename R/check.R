@@ -35,6 +35,7 @@ check.tree <- function(tree, ultrametric=TRUE, bifurcating=TRUE,
 check.states <- function(tree, states, allow.unnamed=FALSE,
                          strict=FALSE, strict.vals=NULL,
                          as.integer=TRUE) {
+  multicheck <- TRUE # for multistate strict checking
   if ( is.matrix(states) ) {
     ## Multistate characters (experimental).  This will not work with
     ## clade trees, but they are only interesting for BiSSE, which has
@@ -45,6 +46,8 @@ check.states <- function(tree, states, allow.unnamed=FALSE,
     if ( any(n == 0) )
       stop(sprintf("No state found for taxa: %s",
                    paste(names(n)[n == 0], collapse=", ")))
+    if (any(rowSums(states) == 0))
+        multicheck <- FALSE
 
     i.mono <- which(n == 1)
     i.mult <- which(n >  1)
@@ -81,6 +84,7 @@ check.states <- function(tree, states, allow.unnamed=FALSE,
 
   ## TODO: When multistate characters are present, this may fail even
   ## for cases where it should not.
+  ## now, multicheck helps this
   if ( !is.null(strict.vals) ) {
     if ( isTRUE(all.equal(strict.vals, 0:1)) )
       if ( is.logical(states) )
@@ -88,7 +92,7 @@ check.states <- function(tree, states, allow.unnamed=FALSE,
     
     if ( strict ) {
       if ( !isTRUE(all.equal(sort(strict.vals),
-                             sort(unique(na.omit(states))))) )
+                             sort(unique(na.omit(states))))) & !multicheck)
         stop("Because strict state checking requested, all (and only) ",
              sprintf("states in %s are allowed",
                      paste(strict.vals, collapse=", ")))
