@@ -37,6 +37,26 @@ make.all.branches.mkn.pij <- function(cache, control) {
 
     ## tips
     ans <- matrix(pij[idx.tip], n.tip, k)
+    if (any(is.na(cache$states)))
+    {
+      ## now fix up ans for the multistate/unknown tips
+      ## (this is unlikely to be the most elegant solution)
+      wts <- do.call("rbind", attr(cache$states, "multistate")$states)[names(cache$states)[is.na(cache$states)],]
+      if (!(all(rowSums(wts) == 1)))
+          stop("Expecting weights for uncertain tips to sum to 1.")
+      i.na <- which(is.na(cache$states))
+      ans[i.na,] <- 0
+      st <- cache$states
+      for (i.k in seq(k))
+      {
+        st[i.na] <- i.k
+        idx.tip1 <- cbind(c(map[st,]), rep(seq_len(n.tip), k))
+        ans1 <- matrix(pij[idx.tip1], n.tip, k)
+        ans[i.na,] <- ans[i.na,] + 
+                      matrix(rep(wts[,i.k], k), ncol=k) * ans1[i.na,]
+      }
+    }
+
     q <- rowSums(ans)
     branch.base[,seq_len(n.tip)] <- t.default(ans/q)
     lq[seq_len(n.tip)] <- log(q)
