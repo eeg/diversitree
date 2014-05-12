@@ -59,8 +59,10 @@ check.states <- function(tree, states, allow.unnamed=FALSE,
 
     states <- rep(NA, length(tmp))
     names(states) <- names(tmp)
-    states[i.mono] <- sapply(tmp[i.mono], function(x)
-                             which(x != 0))
+    if (length(i.mono) > 0) {
+      states[i.mono] <- sapply(tmp[i.mono], function(x)
+                               which(x != 0))
+    }
 
     attr(states, "multistate") <- list(i=i.mult, states=states.mult)
   }
