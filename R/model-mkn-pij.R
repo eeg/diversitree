@@ -3,7 +3,6 @@ make.all.branches.mkn.pij <- function(cache, control) {
   
   f.pij <- make.pij.mkn(cache$info, control)
 
-  idx.tip <- cache$idx.tip
   n.tip <- cache$n.tip
   n <- length(cache$len)
 
@@ -11,8 +10,13 @@ make.all.branches.mkn.pij <- function(cache, control) {
   ## states just return the sum of nonzero ys from the matrix
   ## multiplication, so they can just be done separately.
   map <- t(sapply(1:k, function(i) (1:k) + (i - 1) * k))
-  idx.tip <- cbind(c(map[cache$states,]),
-                   rep(seq_len(n.tip), k))
+  if (!all(is.na(cache$states))) {
+    idx.tip <- cbind(c(map[cache$states,]),
+                     rep(seq_len(n.tip), k))
+  } else {
+    idx.tip <- cbind(NA,
+                     rep(seq_len(n.tip), k))
+  }
   len.uniq <- sort(unique(cache$len))
   len.idx <- match(cache$len, len.uniq)
 
