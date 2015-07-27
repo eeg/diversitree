@@ -3,6 +3,7 @@ When cherry-picking changes for pull-intended branches, watch out for diversitre
 	diversitree/NAMESPACE
 	diversitree-tests/run_tests.R
 	diversitree-tests/runit-classe.R
+INSTEAD: I removed the separate-ly named package.  Use devtools.
 
 doc/
 	update geosse section of tutorial

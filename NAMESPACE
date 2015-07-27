@@ -1,6 +1,6 @@
 ## NAMESPACE
 
-useDynLib(diversitreeEEG)
+useDynLib(diversitree)
 
 import(methods)
 import(Rcpp)
