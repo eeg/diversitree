@@ -45,7 +45,7 @@ check.states <- function(tree, states, allow.unnamed=FALSE,
     n <- rowSums(states > 0)
     if ( any(n == 0) )
       stop(sprintf("No state found for taxa: %s",
-                   paste(names(n)[n == 0], collapse=", ")))
+                   paste(rownames(states)[n == 0], collapse=", ")))
     if (any(rowSums(states) == 0))
         multicheck <- FALSE
 
@@ -60,8 +60,8 @@ check.states <- function(tree, states, allow.unnamed=FALSE,
     states <- rep(NA, length(tmp))
     names(states) <- names(tmp)
     if (length(i.mono) > 0) {
-      states[i.mono] <- sapply(tmp[i.mono], function(x)
-                               which(x != 0))
+    states[i.mono] <- sapply(tmp[i.mono], function(x)
+                             which(x != 0))
     }
 
     attr(states, "multistate") <- list(i=i.mult, states=states.mult)
