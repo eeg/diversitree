@@ -18,6 +18,7 @@ make.bd <- function(tree, sampling.f=NULL, unresolved=NULL,
   control <- check.control.bd(control, times)
   cache <- make.cache.bd(tree, sampling.f, unresolved, times, control)
   const <- cache$const
+  root.age <- max(cache$x, na.rm=T)
 
   if ( control$method == "nee" ) {
     all.branches <- make.all.branches.bd.nee(cache, control)
@@ -26,12 +27,16 @@ make.bd <- function(tree, sampling.f=NULL, unresolved=NULL,
     all.branches <- make.all.branches.dtlik(cache, control,
                                             initial.conditions.bd.ode)
     rootfunc <- rootfunc.bd.ode
+    # Should report to the user that condition.size > 2 is ignored if
+    # method="ode".
   }
 
-  ll <- function(pars, condition.surv=TRUE, intermediates=FALSE) {
+  ll <- function(pars, condition.surv=TRUE, condition.size=2,
+                 condition.age=root.age, intermediates=FALSE) {
     check.pars.nonnegative(pars, 2)
     ans <- all.branches(pars, intermediates)
-    rootfunc(ans, pars, condition.surv, intermediates, const)
+    rootfunc(ans, pars, condition.surv, condition.size, condition.age,
+             intermediates, const)
   }
   class(ll) <- c("bd", "dtlik", "function")
   ll

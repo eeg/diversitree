@@ -59,13 +59,34 @@ make.all.branches.bd.nee <- function(cache, control) {
   }
 }
 
-rootfunc.bd.nee <- function(res, pars, condition.surv,
-                            intermediates, const) {
+rootfunc.bd.nee <- function(res, pars, condition.surv, condition.size,
+                            condition.age, intermediates, const) {
   if ( intermediates )
     stop('intermediates cannot be produced -- use method="ode"')
   vals <- res$vals
   loglik <- vals[[1]] + const
-  if ( !condition.surv ) # notice this is opposite to usual!
+
+  # Now already conditioned on survival.  Further condition on clade size.
+
+  if ( !condition.surv ) { # notice this is opposite to usual!
+    # Undo conditioning on survival, if requested.
+
     loglik <- loglik + vals[[2]]
+
+  } else if (condition.size > 2) {
+    # Additionally condition on clade size, if requested.
+
+    # as in make.all.branches.bd.nee
+    if ( pars[2] == pars[1] )
+      pars[1] <- pars[1] + 1e-12
+    r <- pars[1] - pars[2]
+
+    # the actual conditioning
+    uT <- ( pars[1] * (1 - exp(-r * condition.age)) ) / 
+              ( pars[1] - pars[2] * exp(-r * condition.age) )
+    loglik <- loglik - (condition.size - 2) * log(uT)
+
+  }
+
   loglik
 }
