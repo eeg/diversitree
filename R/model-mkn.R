@@ -16,10 +16,16 @@ make.mkn <- function(tree, states, k, strict=TRUE, control=list()) {
   rootfunc <- rootfunc.mkn
   f.pars <- make.pars.mkn(k)
 
-  ll <- function(pars, root=ROOT.OBS, root.p=NULL, intermediates=FALSE) {
+  ll <- function(pars, root=ROOT.OBS, root.p=NULL, condition.trans=0,
+                 intermediates=FALSE) {
     qmat <- f.pars(pars)
     ans <- all.branches(qmat, intermediates)
-    rootfunc(ans, qmat, root, root.p, intermediates)
+
+    # need to pass total branch length as well as minimum number of transitions
+    condition.trans.tau <- list(Y = condition.trans, 
+                                tau = sum(cache$edge.length))
+
+    rootfunc(ans, qmat, root, root.p, condition.trans.tau, intermediates)
   }
   class(ll) <- c("mkn", "dtlik", "function")
   ll
@@ -108,7 +114,8 @@ initial.conditions.mkn <- function(init, pars, t, idx) {
 }
 
 ## 5: rootfunc
-rootfunc.mkn <- function(res, pars, root, root.p, intermediates) {
+rootfunc.mkn <- function(res, pars, root, root.p, condition.trans.tau,
+                         intermediates) {
   d.root <- res$vals
   lq <- res$lq
   k <- length(d.root)
@@ -119,6 +126,18 @@ rootfunc.mkn <- function(res, pars, root, root.p, intermediates) {
     loglik <- log(d.root) + sum(lq)
   else
     loglik <- log(sum(root.p * d.root)) + sum(lq)
+
+  ## Condition (approximately) on a minimum number of transitions
+  Y <- condition.trans.tau$Y
+  tau <- condition.trans.tau$tau
+  pars0 <- pars
+  diag(pars0) <- 0
+
+  if (Y > 0) {
+    PY <- 1 - sum(root.p * sapply(rowSums(pars0), function(qj)
+                                  sum(dpois(seq(Y)-1, qj*tau))))
+    loglik <- loglik - log(PY)
+  }
 
   if ( intermediates ) {
     res$root.p <- root.p
